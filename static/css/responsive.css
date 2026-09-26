@@ -170,7 +170,7 @@
 
     .composer {
         flex-shrink: 0;
-        padding-bottom: calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+        padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
     }
 
     .btn--mobile-search {
@@ -284,9 +284,7 @@
        CONNECTION STATUS
        -------------------------------------------------------- */
 
-    .connection-status {
-        display: none;
-    }
+    .connection-status { display: flex; }
 }
 
 
@@ -439,7 +437,7 @@
 
     .message-bubble {
         font-size: 0.85rem;
-        padding: 8px 12px;
+        padding: 8px 12px 7px;
     }
 
     .sidebar-tabs button span {
@@ -480,7 +478,4 @@
         font-size: 0.85rem;
     }
 
-    .char-counter {
-        font-size: 0.62rem;
-    }
 }

@@ -271,11 +271,12 @@ const CyberGuardApp = (function () {
 
         const stringValue = String(value);
 
-        const normalized =
-            stringValue.endsWith('Z')
-                ? stringValue
-                : stringValue + 'Z';
-
+        // MySQL DATETIME values have no timezone. Treat them as local time;
+        // adding Z here shifted every timestamp by the browser's UTC offset.
+        const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(stringValue);
+        const normalized = hasTimezone
+            ? stringValue
+            : stringValue.replace(' ', 'T');
         const date = new Date(normalized);
 
         return isNaN(date.getTime()) ? null : date;
@@ -457,6 +458,23 @@ const CyberGuardApp = (function () {
     }
 
 
+    function getSettings() {
+        try {
+            const saved = JSON.parse(
+                localStorage.getItem('cyberguard_settings') || '{}'
+            );
+            return saved && typeof saved === 'object' ? saved : {};
+        } catch (error) {
+            return {};
+        }
+    }
+
+
+    function isSettingEnabled(name) {
+        return getSettings()[name] !== false;
+    }
+
+
     /* =========================================================
        PASSWORD TOGGLES
     ========================================================= */
@@ -533,6 +551,8 @@ const CyberGuardApp = (function () {
         formatDate: formatDate,
         formatTimeShort: formatTimeShort,
         formatDateLabel: formatDateLabel,
+        getSettings: getSettings,
+        isSettingEnabled: isSettingEnabled,
         isSameDay: isSameDay,
 
         setConnectionStatus:

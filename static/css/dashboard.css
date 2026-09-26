@@ -331,6 +331,14 @@
     border-top: 1px solid var(--border);
     gap: 2px;
 }
+.sidebar-logout-form { margin: 0; }
+.sidebar-logout-form .nav-item {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
 .nav-item {
     display: flex;
     align-items: center;

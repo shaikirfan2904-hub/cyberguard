@@ -86,7 +86,8 @@ const ChatModule = (function () {
         /* MARK MESSAGES AS READ */
         if (
             window.CyberGuardSocket &&
-            CyberGuardSocket.isConnected()
+            CyberGuardSocket.isConnected() &&
+            CyberGuardApp.isSettingEnabled('readReceipts')
         ) {
             CyberGuardSocket.emit(
                 'message_read',
@@ -647,12 +648,11 @@ const ChatModule = (function () {
                         'Message blocked due to privacy.' +
                     '</span>' +
 
-                '</div>' +
-
-                '<div class="blocked-chat-time">' +
+                    '<span class="blocked-chat-time">' +
                     CyberGuardApp.formatTimeShort(
                         msg.created_at
                     ) +
+                    '</span>' +
                 '</div>';
 
             return div;
@@ -701,8 +701,8 @@ const ChatModule = (function () {
                 statusIcon =
                     '<span class="message-status message-status--read" title="Read">' +
                         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-                            '<polyline points="20 6 9 17 4 12"/>' +
-                            '<polyline points="20 6 9 17 4 12" transform="translate(4,0)"/>' +
+                            '<path d="m2 12 5 5L18 6"/>' +
+                            '<path d="m9 12 5 5L22 6"/>' +
                         '</svg>' +
                     '</span>';
 
@@ -711,8 +711,8 @@ const ChatModule = (function () {
                 statusIcon =
                     '<span class="message-status message-status--delivered" title="Delivered">' +
                         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-                            '<polyline points="20 6 9 17 4 12"/>' +
-                            '<polyline points="20 6 9 17 4 12" transform="translate(4,0)"/>' +
+                            '<path d="m2 12 5 5L18 6"/>' +
+                            '<path d="m9 12 5 5L22 6"/>' +
                         '</svg>' +
                     '</span>';
 
@@ -771,13 +771,13 @@ const ChatModule = (function () {
                 bubbleClass +
             '">' +
 
-                text +
+                '<div class="message-text">' +
+                    text +
+                '</div>' +
 
                 actions +
 
-            '</div>' +
-
-            '<div class="message-meta">' +
+                '<div class="message-meta">' +
 
                 '<span class="message-time">' +
                     CyberGuardApp.formatTimeShort(
@@ -786,6 +786,8 @@ const ChatModule = (function () {
                 '</span>' +
 
                 statusIcon +
+
+                '</div>' +
 
             '</div>';
 
@@ -1176,50 +1178,9 @@ const ChatModule = (function () {
                 'sendBtn'
             );
 
-        const updateCounter =
-            function () {
-
-                const counter =
-                    document.getElementById(
-                        'charCounter'
-                    );
-
-                if (!counter) {
-                    return;
-                }
-
-                const length =
-                    messageInput.value.length;
-
-                counter.textContent =
-                    length + '/2000';
-
-                counter.classList.remove(
-                    'char-counter--warning',
-                    'char-counter--danger'
-                );
-
-                if (length >= 1800) {
-
-                    counter.classList.add(
-                        'char-counter--warning'
-                    );
-                }
-
-                if (length >= 1950) {
-
-                    counter.classList.add(
-                        'char-counter--danger'
-                    );
-                }
-            };
-
         messageInput.addEventListener(
             'input',
             function () {
-
-                updateCounter();
-
                 messageSendButton.disabled =
                     messageInput.value.trim().length === 0;
 
@@ -1262,7 +1223,6 @@ const ChatModule = (function () {
             }
         );
 
-        updateCounter();
     }
 
 
@@ -1354,6 +1314,14 @@ const ChatModule = (function () {
 
     function initSocketHandlers() {
 
+        const safetyDismiss = document.getElementById('safetyDismissBtn');
+        if (safetyDismiss) {
+            safetyDismiss.addEventListener('click', function () {
+                const modal = document.getElementById('safetyModal');
+                if (modal) modal.style.display = 'none';
+            });
+        }
+
         if (
             !window.CyberGuardSocket
         ) {
@@ -1400,6 +1368,14 @@ const ChatModule = (function () {
             }
         );
 
+        CyberGuardSocket.on(
+            'message_read_receipt',
+            function (data) {
+                if (!data || !data.reader) return;
+                updateReadReceipts(data.reader);
+            }
+        );
+
 
         /* RECEIVER: NORMAL MESSAGE */
 
@@ -1440,7 +1416,8 @@ const ChatModule = (function () {
                     appendMessage(data);
 
                     if (
-                        CyberGuardSocket.isConnected()
+                        CyberGuardSocket.isConnected() &&
+                        CyberGuardApp.isSettingEnabled('readReceipts')
                     ) {
                         CyberGuardSocket.emit(
                             'message_read',
@@ -1453,6 +1430,15 @@ const ChatModule = (function () {
 
                 } else {
                     refreshChatList();
+                    if (CyberGuardApp.isSettingEnabled('notifMessage') && window.Notifications) {
+                        Notifications.add({
+                            id: 'live-' + data.id,
+                            title: 'New message',
+                            message: 'New message from @' + data.sender,
+                            is_read: false,
+                            created_at: data.created_at || new Date().toISOString()
+                        });
+                    }
                 }
             }
         );
@@ -1667,7 +1653,8 @@ const ChatModule = (function () {
                     appendMessage(blockedMessage);
 
                     if (
-                        CyberGuardSocket.isConnected()
+                        CyberGuardSocket.isConnected() &&
+                        CyberGuardApp.isSettingEnabled('readReceipts')
                     ) {
 
                         CyberGuardSocket.emit(
@@ -1733,10 +1720,16 @@ const ChatModule = (function () {
 
                 refreshChatList();
 
-                CyberGuardApp.toast(
-                    'Message blocked due to privacy.',
-                    'warning'
-                );
+                if (CyberGuardApp.isSettingEnabled('warningDisplay')) {
+                    const modal = document.getElementById('safetyModal');
+                    const category = document.getElementById('alertCategory');
+                    const reason = document.getElementById('alertReason');
+                    const confidence = document.getElementById('alertConfidence');
+                    if (category) category.textContent = data.classification || 'Aggressive content';
+                    if (reason) reason.textContent = 'The message was blocked by the AI safety filter.';
+                    if (confidence) confidence.textContent = '—';
+                    if (modal) modal.style.display = 'flex';
+                }
             }
         );
 
@@ -1759,6 +1752,39 @@ const ChatModule = (function () {
                 }
             }
         );
+    }
+
+
+    function updateReadReceipts(reader) {
+        const currentUser = window.Dashboard && Dashboard.getCurrentUser
+            ? Dashboard.getCurrentUser()
+            : null;
+        if (!currentUser || !Array.isArray(messages)) return;
+
+        const readAt = new Date().toISOString();
+        messages.forEach(function (message) {
+            if (message.sender !== currentUser.username ||
+                message.receiver !== reader || message.is_deleted ||
+                message.message_type === 'blocked') return;
+
+            message.read_at = message.read_at || readAt;
+            const element = Array.from(document.querySelectorAll('.message[data-id]'))
+                .find(function (item) {
+                    return item.dataset.id === String(message.id);
+                });
+            if (!element) return;
+
+            let status = element.querySelector('.message-status');
+            if (!status) {
+                status = document.createElement('span');
+                const meta = element.querySelector('.message-meta');
+                if (meta) meta.appendChild(status);
+                else return;
+            }
+            status.className = 'message-status message-status--read';
+            status.title = 'Read';
+            status.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 12 5 5L18 6"/><path d="m9 12 5 5L22 6"/></svg>';
+        });
     }
 
 

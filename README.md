@@ -56,7 +56,7 @@ The ML model uses **contextual classification** — not simple keyword matching.
 ### Social
 - User registration with strong password validation
 - Secure login/logout with hashed passwords (Werkzeug)
-- User profiles (display name, bio, avatar initials)
+- User profiles (display name, avatar initials)
 - Friend request system (send, accept, reject, remove)
 - User search by username
 - Online/offline presence with real-time updates

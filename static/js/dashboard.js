@@ -10,6 +10,8 @@ const Dashboard = (function () {
     let friends = [];
     let pendingRequests = [];
     let activeChatUser = null;
+    let chatHistoryEntryActive = false;
+    let restoringChatHistory = false;
 
     let searchTimer = null;
     let renderVersion = 0;
@@ -26,6 +28,16 @@ const Dashboard = (function () {
 
         uiHandlersInitialized = true;
 
+        window.addEventListener('popstate', function () {
+            if (activeChatUser && chatHistoryEntryActive &&
+                !(history.state && history.state.cyberGuardChat)) {
+                chatHistoryEntryActive = false;
+                restoringChatHistory = true;
+                closeActiveChat();
+                restoringChatHistory = false;
+            }
+        });
+
         initSocketHandlers();
         initSearch();
         initTabs();
@@ -40,6 +52,18 @@ const Dashboard = (function () {
 
         if (!userLoaded) {
             return;
+        }
+
+        try {
+            const settingsResponse = await CyberGuardApp.api('/api/settings');
+            if (settingsResponse && settingsResponse.success) {
+                localStorage.setItem(
+                    'cyberguard_settings',
+                    JSON.stringify(settingsResponse.data || {})
+                );
+            }
+        } catch (error) {
+            console.warn('[Dashboard] Could not load settings:', error);
         }
 
         /*
@@ -1199,11 +1223,6 @@ const Dashboard = (function () {
                 'topbarMenu'
             );
 
-        const close =
-            document.getElementById(
-                'sidebarClose'
-            );
-
         const overlay =
             document.getElementById(
                 'sidebarOverlay'
@@ -1217,14 +1236,14 @@ const Dashboard = (function () {
         if (menu) {
             menu.addEventListener(
                 'click',
-                openSidebar
-            );
-        }
-
-        if (close) {
-            close.addEventListener(
-                'click',
-                closeSidebar
+                function () {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar && sidebar.classList.contains('open')) {
+                        closeSidebar();
+                    } else {
+                        openSidebar();
+                    }
+                }
             );
         }
 
@@ -1234,6 +1253,13 @@ const Dashboard = (function () {
                 closeSidebar
             );
         }
+
+        document.addEventListener('pointerdown', function (event) {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar || !sidebar.classList.contains('open')) return;
+            if (sidebar.contains(event.target) || (menu && menu.contains(event.target))) return;
+            closeSidebar();
+        });
 
         if (mobileNew) {
             mobileNew.addEventListener(
@@ -1276,6 +1302,15 @@ const Dashboard = (function () {
 
     function openChat(username) {
         if (!username) return;
+
+        if (!activeChatUser && window.matchMedia('(max-width: 1024px)').matches) {
+            history.pushState(
+                Object.assign({}, history.state || {}, { cyberGuardChat: true }),
+                '',
+                window.location.href
+            );
+            chatHistoryEntryActive = true;
+        }
 
         activeChatUser =
             username;
@@ -1542,6 +1577,12 @@ const Dashboard = (function () {
     }
 
     function closeActiveChat() {
+        if (!restoringChatHistory && chatHistoryEntryActive &&
+            history.state && history.state.cyberGuardChat) {
+            history.back();
+            return;
+        }
+        chatHistoryEntryActive = false;
         activeChatUser = null;
         if (window.ChatModule && typeof ChatModule.closeCurrentChat === 'function') {
             ChatModule.closeCurrentChat();

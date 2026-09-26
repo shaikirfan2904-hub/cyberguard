@@ -961,19 +961,15 @@ a:hover {
    ============================================================ */
 
 .connection-status {
-    position: fixed;
-    bottom: var(--sp-3);
-    left: var(--sp-3);
+    position: static;
     display: flex;
     align-items: center;
     gap: var(--sp-2);
-    padding: 6px 12px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--r-pill);
+    padding: 8px 12px;
+    margin-top: 4px;
+    border-top: 1px solid var(--border);
     font-size: 0.75rem;
     color: var(--text-secondary);
-    z-index: 500;
     transition: var(--t-base);
     opacity: 0.8;
 }

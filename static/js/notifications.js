@@ -11,6 +11,8 @@ const Notifications = (function () {
     let panelOpen = false;
     let initialized = false;
     let loading = false;
+    let panelHistoryEntryActive = false;
+    let restoringPanelHistory = false;
 
 
     /* =========================================================
@@ -71,7 +73,8 @@ const Notifications = (function () {
 
         list.innerHTML = '';
 
-        if (!notifications.length) {
+        const visibleNotifications = getVisibleNotifications();
+        if (!visibleNotifications.length) {
             const empty =
                 document.createElement('div');
 
@@ -93,7 +96,7 @@ const Notifications = (function () {
         const fragment =
             document.createDocumentFragment();
 
-        notifications.forEach(function (notification) {
+        visibleNotifications.forEach(function (notification) {
 
             if (!notification) {
                 return;
@@ -156,9 +159,20 @@ const Notifications = (function () {
        BADGES
     ========================================================= */
 
+    function getVisibleNotifications() {
+        const settings = CyberGuardApp.getSettings();
+        return notifications.filter(function (notification) {
+            const title = String(notification && notification.title || '').toLowerCase();
+            if (title.includes('friend request') && settings.notifFriend === false) return false;
+            if (title.includes('message') && settings.notifMessage === false) return false;
+            return true;
+        });
+    }
+
+
     function updateBadge() {
         const unread =
-            notifications.filter(function (notification) {
+            getVisibleNotifications().filter(function (notification) {
                 return notification &&
                     !notification.is_read;
             }).length;
@@ -347,10 +361,25 @@ const Notifications = (function () {
             return;
         }
 
+        const wasOpen = panelOpen;
         if (typeof forceState === 'boolean') {
             panelOpen = forceState;
         } else {
             panelOpen = !panelOpen;
+        }
+
+        if (!wasOpen && panelOpen && window.matchMedia('(max-width: 1024px)').matches) {
+            history.pushState(
+                Object.assign({}, history.state || {}, { cyberGuardNotifications: true }),
+                '',
+                window.location.href
+            );
+            panelHistoryEntryActive = true;
+        } else if (wasOpen && !panelOpen && panelHistoryEntryActive) {
+            panelHistoryEntryActive = false;
+            if (!restoringPanelHistory && history.state && history.state.cyberGuardNotifications) {
+                history.back();
+            }
         }
 
         panel.classList.toggle(
@@ -372,6 +401,13 @@ const Notifications = (function () {
     function add(notification) {
         if (!notification ||
             typeof notification !== 'object') {
+            return;
+        }
+
+        const title = String(notification.title || '').toLowerCase();
+        const settings = CyberGuardApp.getSettings();
+        if ((title.includes('friend request') && settings.notifFriend === false) ||
+            (title.includes('message') && settings.notifMessage === false)) {
             return;
         }
 
@@ -474,6 +510,16 @@ const Notifications = (function () {
         }
 
         initialized = true;
+
+        window.addEventListener('popstate', function () {
+            if (panelOpen && panelHistoryEntryActive &&
+                !(history.state && history.state.cyberGuardNotifications)) {
+                panelHistoryEntryActive = false;
+                restoringPanelHistory = true;
+                togglePanel(false);
+                restoringPanelHistory = false;
+            }
+        });
 
         const panel =
             document.getElementById(

@@ -62,7 +62,7 @@
                         <label>Detection Threshold</label>
                         <span class="settings-desc">Messages with aggression probability above this value are blocked.</span>
                     </div>
-                    <span class="settings-value settings-value--accent" id="thresholdValue">0.65</span>
+                    <span class="settings-value settings-value--accent" id="thresholdValue">{{ '%.2f'|format(detection_threshold) }}</span>
                 </div>
                 <div class="settings-row">
                     <div class="settings-row-info">
@@ -150,28 +150,42 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('settingsEmail').textContent = res.data.email;
     }
 
-    // Load saved settings from localStorage
-    const settings = JSON.parse(localStorage.getItem('cyberguard_settings') || '{}');
-    if (settings.warningDisplay !== undefined) document.getElementById('warningToggle').checked = settings.warningDisplay;
-    if (settings.notifFriend !== undefined) document.getElementById('notifFriendToggle').checked = settings.notifFriend;
-    if (settings.notifMessage !== undefined) document.getElementById('notifMessageToggle').checked = settings.notifMessage;
-    if (settings.onlineStatus !== undefined) document.getElementById('onlineStatusToggle').checked = settings.onlineStatus;
-    if (settings.readReceipts !== undefined) document.getElementById('readReceiptsToggle').checked = settings.readReceipts;
-
-    // Save on change
-    function saveSettings() {
-        const s = {
-            warningDisplay: document.getElementById('warningToggle').checked,
-            notifFriend: document.getElementById('notifFriendToggle').checked,
-            notifMessage: document.getElementById('notifMessageToggle').checked,
-            onlineStatus: document.getElementById('onlineStatusToggle').checked,
-            readReceipts: document.getElementById('readReceiptsToggle').checked
-        };
-        localStorage.setItem('cyberguard_settings', JSON.stringify(s));
+    const controls = {
+        warningDisplay: document.getElementById('warningToggle'),
+        notifFriend: document.getElementById('notifFriendToggle'),
+        notifMessage: document.getElementById('notifMessageToggle'),
+        onlineStatus: document.getElementById('onlineStatusToggle'),
+        readReceipts: document.getElementById('readReceiptsToggle')
+    };
+    let savedSettings = App.getSettings();
+    try {
+        const response = await App.api('/api/settings');
+        if (response.success) savedSettings = response.data || savedSettings;
+    } catch (error) {
+        console.warn('[Settings] Could not load server preferences:', error);
     }
-    document.querySelectorAll('.switch input').forEach(el => el.addEventListener('change', function() {
-        saveSettings();
-        App.toast('Settings saved', 'success');
+    Object.keys(controls).forEach(key => {
+        if (savedSettings[key] !== undefined) controls[key].checked = !!savedSettings[key];
+    });
+    localStorage.setItem('cyberguard_settings', JSON.stringify(savedSettings));
+
+    Object.keys(controls).forEach(key => controls[key].addEventListener('change', async function() {
+        const previousValue = !this.checked;
+        this.disabled = true;
+        try {
+            const response = await App.api('/api/settings', {
+                method: 'PUT',
+                body: JSON.stringify({ [key]: this.checked })
+            });
+            if (!response.success) throw new Error(response.message || 'Save failed');
+            localStorage.setItem('cyberguard_settings', JSON.stringify(response.data));
+            App.toast('Settings saved', 'success');
+        } catch (error) {
+            this.checked = previousValue;
+            App.toast(error.message || 'Could not save settings', 'error');
+        } finally {
+            this.disabled = false;
+        }
     }));
 });
 </script>

@@ -155,6 +155,15 @@ def init_db():
                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""",
             fetch=None, commit=True
         )
+        query_db(
+            """CREATE TABLE IF NOT EXISTS user_preferences (
+                   username VARCHAR(50) NOT NULL PRIMARY KEY,
+                   preferences_json TEXT NOT NULL,
+                   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                   CONSTRAINT fk_preferences_user FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+               ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""",
+            fetch=None, commit=True
+        )
         admin = query_db(
             "SELECT id, password_hash FROM admins WHERE username = %s",
             (Config.ADMIN_USERNAME,), fetch="one"
@@ -186,6 +195,35 @@ def log_activity(username, action, ip=None):
         )
     except Exception as e:
         error_logger.error(f"Activity log failed: {e}")
+
+
+DEFAULT_USER_PREFERENCES = {
+    "warningDisplay": True,
+    "notifFriend": True,
+    "notifMessage": True,
+    "onlineStatus": True,
+    "readReceipts": True,
+}
+
+
+def get_user_preferences(username):
+    row = query_db(
+        "SELECT preferences_json FROM user_preferences WHERE username = %s",
+        (username,), fetch="one"
+    )
+    preferences = dict(DEFAULT_USER_PREFERENCES)
+    if row:
+        try:
+            saved = json.loads(row["preferences_json"] or "{}")
+            if isinstance(saved, dict):
+                preferences.update({
+                    key: bool(saved[key])
+                    for key in DEFAULT_USER_PREFERENCES
+                    if key in saved
+                })
+        except (TypeError, ValueError):
+            pass
+    return preferences
 
 
 def compute_risk_level(violations):
@@ -313,7 +351,10 @@ def profile():
 @app.route("/settings")
 @login_required
 def settings():
-    return render_template("settings.html")
+    return render_template(
+        "settings.html",
+        detection_threshold=Config.AGGRESSION_THRESHOLD
+    )
 
 
 @app.route("/admin_login")
@@ -329,8 +370,12 @@ def admin():
     return render_template("admin.html", admin_username=session.get("admin_username"))
 
 
-@app.route("/logout")
+@app.route("/logout", methods=["GET", "POST"])
 def logout():
+    # Browser back/forward navigation must not invalidate a signed-in session.
+    if request.method == "GET":
+        return redirect(url_for("dashboard" if "user_id" in session else "login"))
+
     username = session.get("username")
     if username:
         try:
@@ -346,8 +391,10 @@ def logout():
     return redirect(url_for("login"))
 
 
-@app.route("/admin_logout")
+@app.route("/admin_logout", methods=["GET", "POST"])
 def admin_logout():
+    if request.method == "GET":
+        return redirect(url_for("admin" if "admin_id" in session else "admin_login"))
     session.pop("admin_id", None)
     session.pop("admin_username", None)
     return redirect(url_for("admin_login"))
@@ -417,16 +464,18 @@ def api_login():
         if not user or not check_password_hash(user["password_hash"], password):
             return jsonify({"success": False, "message": "Invalid username or password."}), 401
 
+        is_visible = get_user_preferences(user["username"])["onlineStatus"]
         query_db(
-            "UPDATE users SET status = 'online', last_seen = NOW() WHERE id = %s",
-            (user["id"],), commit=True
+            "UPDATE users SET status = %s, last_seen = NOW() WHERE id = %s",
+            ("online" if is_visible else "offline", user["id"]), commit=True
         )
         session.permanent = True
         session["user_id"] = user["id"]
         session["username"] = user["username"]
         log_activity(user["username"], "login", request.remote_addr)
 
-        socketio.emit("user_online", {"username": user["username"]})
+        if is_visible:
+            socketio.emit("user_online", {"username": user["username"]})
         return jsonify({
             "success": True, "message": "Login successful.",
             "data": {"username": user["username"]}
@@ -529,22 +578,54 @@ def api_get_profile():
 def api_update_profile():
     data = request.get_json(silent=True) or {}
     display_name = (data.get("display_name") or "").strip()
-    bio = (data.get("bio") or "").strip()
 
     if display_name and len(display_name) > 100:
         return jsonify({"success": False, "message": "Display name must be under 100 characters."}), 400
-    if bio and len(bio) > 500:
-        return jsonify({"success": False, "message": "Bio must be under 500 characters."}), 400
-
     try:
         query_db(
-            "UPDATE users SET display_name = %s, bio = %s, updated_at = NOW() WHERE id = %s",
-            (display_name or None, bio or None, session["user_id"]), commit=True
+            "UPDATE users SET display_name = %s, updated_at = NOW() WHERE id = %s",
+            (display_name or None, session["user_id"]), commit=True
         )
         return jsonify({"success": True, "message": "Profile updated successfully."}), 200
     except Exception as e:
         error_logger.error(f"Profile PUT error: {e}")
         return jsonify({"success": False, "message": "Failed to update profile."}), 500
+
+
+@app.route("/api/settings", methods=["GET", "PUT"])
+@login_required
+def api_settings():
+    username = session["username"]
+    try:
+        if request.method == "GET":
+            return jsonify({"success": True, "data": get_user_preferences(username)}), 200
+
+        data = request.get_json(silent=True) or {}
+        if any(key not in DEFAULT_USER_PREFERENCES or not isinstance(value, bool)
+               for key, value in data.items()):
+            return jsonify({"success": False, "message": "Invalid settings values."}), 400
+
+        preferences = get_user_preferences(username)
+        preferences.update(data)
+        query_db(
+            """INSERT INTO user_preferences (username, preferences_json)
+               VALUES (%s, %s)
+               ON DUPLICATE KEY UPDATE preferences_json = VALUES(preferences_json)""",
+            (username, json.dumps(preferences)), commit=True
+        )
+
+        if "onlineStatus" in data:
+            status = "online" if preferences["onlineStatus"] else "offline"
+            query_db(
+                "UPDATE users SET status = %s, last_seen = NOW() WHERE username = %s",
+                (status, username), commit=True
+            )
+            socketio.emit("user_" + status, {"username": username})
+
+        return jsonify({"success": True, "data": preferences}), 200
+    except Exception as e:
+        error_logger.error(f"Settings API error: {e}")
+        return jsonify({"success": False, "message": "Failed to save settings."}), 500
 
 
 # ============================================================
@@ -1364,15 +1445,18 @@ def handle_connect():
     connected_users[request.sid] = username
     join_room(username)
 
+    is_visible = True
     try:
+        is_visible = get_user_preferences(username)["onlineStatus"]
         query_db(
-            "UPDATE users SET status = 'online', last_seen = NOW() WHERE username = %s",
-            (username,), commit=True
+            "UPDATE users SET status = %s, last_seen = NOW() WHERE username = %s",
+            ("online" if is_visible else "offline", username), commit=True
         )
     except Exception as e:
         error_logger.error(f"Socket connect DB error: {e}")
 
-    emit("user_online", {"username": username})
+    if is_visible:
+        emit("user_online", {"username": username})
     logger.info(f"Socket connected: {username}")
 
 
@@ -1760,6 +1844,8 @@ def handle_message_read(data):
         return
 
     try:
+        if not get_user_preferences(session["username"])["readReceipts"]:
+            return
         # Mark all messages from other_user to me as read
         query_db(
             """UPDATE chat_messages SET read_at = NOW()

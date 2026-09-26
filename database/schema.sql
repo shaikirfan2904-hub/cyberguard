@@ -31,6 +31,16 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
+-- USER PREFERENCES
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_preferences (
+    username         VARCHAR(50) NOT NULL PRIMARY KEY,
+    preferences_json TEXT NOT NULL,
+    updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_preferences_user FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
 -- ADMINS
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS admins (
@@ -176,7 +186,7 @@ CREATE TABLE IF NOT EXISTS user_activity (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
-CREATE TABLE conversation_clears (
+CREATE TABLE IF NOT EXISTS conversation_clears (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(100) NOT NULL,
     other_username VARCHAR(100) NOT NULL,

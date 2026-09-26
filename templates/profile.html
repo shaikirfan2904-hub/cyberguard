@@ -204,29 +204,6 @@
                     </div>
 
 
-                    <!-- Bio -->
-                    <div class="form-field">
-
-                        <label for="editBio">
-                            Bio
-                        </label>
-
-                        <textarea
-                            id="editBio"
-                            placeholder="Tell something about yourself..."
-                            rows="3"
-                            maxlength="500"
-                        ></textarea>
-
-                        <span
-                            class="field-hint"
-                            id="bioCounter"
-                        >
-                            0 / 500
-                        </span>
-
-                    </div>
-
 
                     <!-- Error -->
                     <div
@@ -339,16 +316,6 @@ document.addEventListener(
             editDisplayName:
                 document.getElementById(
                     'editDisplayName'
-                ),
-
-            editBio:
-                document.getElementById(
-                    'editBio'
-                ),
-
-            bioCounter:
-                document.getElementById(
-                    'bioCounter'
                 ),
 
             form:
@@ -482,15 +449,6 @@ document.addEventListener(
                 }
 
 
-                if (elements.editBio) {
-
-                    elements.editBio.value =
-                        data.bio || '';
-                }
-
-
-                updateBioCounter();
-
             } catch (error) {
 
                 console.error(
@@ -503,35 +461,6 @@ document.addEventListener(
                     'error'
                 );
             }
-        }
-
-
-        /* =====================================================
-           BIO COUNTER
-           ===================================================== */
-
-        function updateBioCounter() {
-
-            if (
-                !elements.editBio ||
-                !elements.bioCounter
-            ) {
-                return;
-            }
-
-
-            elements.bioCounter.textContent =
-                elements.editBio.value.length +
-                ' / 500';
-        }
-
-
-        if (elements.editBio) {
-
-            elements.editBio.addEventListener(
-                'input',
-                updateBioCounter
-            );
         }
 
 
@@ -573,11 +502,6 @@ document.addEventListener(
                                             display_name:
                                                 elements.editDisplayName
                                                     ? elements.editDisplayName.value.trim()
-                                                    : '',
-
-                                            bio:
-                                                elements.editBio
-                                                    ? elements.editBio.value.trim()
                                                     : ''
                                         })
                                 }
