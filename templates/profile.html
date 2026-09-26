@@ -1,0 +1,641 @@
+{% extends "base.html" %}
+
+{% block title %}Profile — CyberGuard AI{% endblock %}
+
+{% block styles %}
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/dashboard.css') }}"
+>
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/responsive.css') }}"
+>
+
+{% endblock %}
+
+
+{% block body %}
+
+<div class="page-layout">
+
+    <!-- =====================================================
+         TOP BAR
+         ===================================================== -->
+
+    <header class="topbar topbar--fixed">
+
+        <a
+            href="{{ url_for('dashboard') }}"
+            class="topbar-back"
+            aria-label="Back to dashboard"
+        >
+
+            <svg viewBox="0 0 24 24"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="2">
+
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+
+            </svg>
+
+        </a>
+
+
+        <div class="topbar-brand">
+
+            <div class="brand-icon brand-icon--xs">
+
+                <svg viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2">
+
+                    <path d="M12 2L4 6v6c0 5.55 3.84 10.74 8 12
+                             4.16-1.26 8-6.45 8-12V6l-8-4z"/>
+
+                    <path d="M9 12l2 2 4-4"/>
+
+                </svg>
+
+            </div>
+
+            <span>
+                Profile
+            </span>
+
+        </div>
+
+
+        <div class="topbar-spacer"></div>
+
+    </header>
+
+
+    <!-- =====================================================
+         PAGE CONTENT
+         ===================================================== -->
+
+    <main class="page-content">
+
+        <div class="profile-card">
+
+
+            <!-- Profile header -->
+            <section class="profile-header">
+
+                <div
+                    class="profile-avatar"
+                    id="profileAvatar"
+                    aria-hidden="true"
+                ></div>
+
+
+                <div class="profile-header-info">
+
+                    <h1 id="profileDisplayName">
+                        Loading...
+                    </h1>
+
+                    <p
+                        class="profile-username"
+                        id="profileUsername"
+                    >
+                        @—
+                    </p>
+
+
+                    <div class="profile-status">
+
+                        <span
+                            class="status-dot"
+                            id="profileStatusDot"
+                        ></span>
+
+                        <span id="profileStatusText">
+                            Offline
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 PROFILE INFORMATION
+                 ================================================= -->
+
+            <section class="profile-info-grid">
+
+                <div class="profile-info-item">
+
+                    <label>
+                        Email
+                    </label>
+
+                    <span id="profileEmail">
+                        —
+                    </span>
+
+                </div>
+
+
+                <div class="profile-info-item">
+
+                    <label>
+                        Member since
+                    </label>
+
+                    <span id="profileJoined">
+                        —
+                    </span>
+
+                </div>
+
+
+                <div class="profile-info-item">
+
+                    <label>
+                        Last seen
+                    </label>
+
+                    <span id="profileLastSeen">
+                        —
+                    </span>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 EDIT PROFILE
+                 ================================================= -->
+
+            <section class="profile-edit-section">
+
+                <h2>
+                    Edit Profile
+                </h2>
+
+
+                <form id="profileForm">
+
+                    <!-- Display name -->
+                    <div class="form-field">
+
+                        <label for="editDisplayName">
+                            Display Name
+                        </label>
+
+                        <input
+                            type="text"
+                            id="editDisplayName"
+                            placeholder="Your display name"
+                            maxlength="100"
+                            autocomplete="name"
+                        >
+
+                    </div>
+
+
+                    <!-- Bio -->
+                    <div class="form-field">
+
+                        <label for="editBio">
+                            Bio
+                        </label>
+
+                        <textarea
+                            id="editBio"
+                            placeholder="Tell something about yourself..."
+                            rows="3"
+                            maxlength="500"
+                        ></textarea>
+
+                        <span
+                            class="field-hint"
+                            id="bioCounter"
+                        >
+                            0 / 500
+                        </span>
+
+                    </div>
+
+
+                    <!-- Error -->
+                    <div
+                        class="form-error"
+                        id="profileFormError"
+                        role="alert"
+                    ></div>
+
+
+                    <!-- Save -->
+                    <button
+                        type="submit"
+                        class="btn btn--primary"
+                        id="profileSaveBtn"
+                    >
+
+                        <span class="btn-text">
+                            Save Changes
+                        </span>
+
+                        <span
+                            class="btn-spinner"
+                            aria-hidden="true"
+                        ></span>
+
+                    </button>
+
+                </form>
+
+            </section>
+
+        </div>
+
+    </main>
+
+
+    <!-- Toast -->
+    <div
+        class="toast-container"
+        id="toastContainer"
+    ></div>
+
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+
+<script>
+
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        const App =
+            window.CyberGuardApp;
+
+
+        /* =====================================================
+           ELEMENT HELPERS
+           ===================================================== */
+
+        const elements = {
+
+            avatar:
+                document.getElementById(
+                    'profileAvatar'
+                ),
+
+            displayName:
+                document.getElementById(
+                    'profileDisplayName'
+                ),
+
+            username:
+                document.getElementById(
+                    'profileUsername'
+                ),
+
+            email:
+                document.getElementById(
+                    'profileEmail'
+                ),
+
+            joined:
+                document.getElementById(
+                    'profileJoined'
+                ),
+
+            lastSeen:
+                document.getElementById(
+                    'profileLastSeen'
+                ),
+
+            statusDot:
+                document.getElementById(
+                    'profileStatusDot'
+                ),
+
+            statusText:
+                document.getElementById(
+                    'profileStatusText'
+                ),
+
+            editDisplayName:
+                document.getElementById(
+                    'editDisplayName'
+                ),
+
+            editBio:
+                document.getElementById(
+                    'editBio'
+                ),
+
+            bioCounter:
+                document.getElementById(
+                    'bioCounter'
+                ),
+
+            form:
+                document.getElementById(
+                    'profileForm'
+                ),
+
+            saveButton:
+                document.getElementById(
+                    'profileSaveBtn'
+                )
+
+        };
+
+
+        /* =====================================================
+           LOAD PROFILE
+           ===================================================== */
+
+        async function loadProfile() {
+
+            try {
+
+                const res =
+                    await App.api(
+                        '/api/profile'
+                    );
+
+
+                if (!res || !res.success) {
+
+                    App.toast(
+                        res && res.message
+                            ? res.message
+                            : 'Failed to load profile',
+                        'error'
+                    );
+
+                    return;
+                }
+
+
+                const data =
+                    res.data || {};
+
+
+                const username =
+                    data.username || '?';
+
+
+                const initial =
+                    username
+                        .charAt(0)
+                        .toUpperCase();
+
+
+                if (elements.avatar) {
+                    elements.avatar.textContent =
+                        initial;
+                }
+
+
+                if (elements.displayName) {
+                    elements.displayName.textContent =
+                        data.display_name ||
+                        username;
+                }
+
+
+                if (elements.username) {
+                    elements.username.textContent =
+                        '@' + username;
+                }
+
+
+                if (elements.email) {
+                    elements.email.textContent =
+                        data.email || '—';
+                }
+
+
+                if (elements.joined) {
+                    elements.joined.textContent =
+                        data.created_at
+                            ? App.formatDate(
+                                data.created_at
+                            )
+                            : '—';
+                }
+
+
+                if (elements.lastSeen) {
+                    elements.lastSeen.textContent =
+                        data.last_seen
+                            ? App.formatDate(
+                                data.last_seen
+                            )
+                            : '—';
+                }
+
+
+                const isOnline =
+                    data.status === 'online';
+
+
+                if (elements.statusDot) {
+
+                    elements.statusDot.className =
+                        'status-dot status-dot--' +
+                        (
+                            isOnline
+                                ? 'online'
+                                : 'offline'
+                        );
+                }
+
+
+                if (elements.statusText) {
+
+                    elements.statusText.textContent =
+                        isOnline
+                            ? 'Online'
+                            : 'Offline';
+                }
+
+
+                if (elements.editDisplayName) {
+
+                    elements.editDisplayName.value =
+                        data.display_name || '';
+                }
+
+
+                if (elements.editBio) {
+
+                    elements.editBio.value =
+                        data.bio || '';
+                }
+
+
+                updateBioCounter();
+
+            } catch (error) {
+
+                console.error(
+                    '[Profile] Failed to load profile:',
+                    error
+                );
+
+                App.toast(
+                    'Failed to load profile',
+                    'error'
+                );
+            }
+        }
+
+
+        /* =====================================================
+           BIO COUNTER
+           ===================================================== */
+
+        function updateBioCounter() {
+
+            if (
+                !elements.editBio ||
+                !elements.bioCounter
+            ) {
+                return;
+            }
+
+
+            elements.bioCounter.textContent =
+                elements.editBio.value.length +
+                ' / 500';
+        }
+
+
+        if (elements.editBio) {
+
+            elements.editBio.addEventListener(
+                'input',
+                updateBioCounter
+            );
+        }
+
+
+        /* =====================================================
+           SAVE PROFILE
+           ===================================================== */
+
+        if (elements.form) {
+
+            elements.form.addEventListener(
+                'submit',
+                async function (event) {
+
+                    event.preventDefault();
+
+
+                    if (
+                        !elements.saveButton
+                    ) {
+                        return;
+                    }
+
+
+                    elements.saveButton.classList.add(
+                        'is-loading'
+                    );
+
+
+                    try {
+
+                        const res =
+                            await App.api(
+                                '/api/profile',
+                                {
+                                    method: 'PUT',
+
+                                    body:
+                                        JSON.stringify({
+                                            display_name:
+                                                elements.editDisplayName
+                                                    ? elements.editDisplayName.value.trim()
+                                                    : '',
+
+                                            bio:
+                                                elements.editBio
+                                                    ? elements.editBio.value.trim()
+                                                    : ''
+                                        })
+                                }
+                            );
+
+
+                        if (res && res.success) {
+
+                            App.toast(
+                                'Profile updated successfully',
+                                'success'
+                            );
+
+                            await loadProfile();
+
+                        } else {
+
+                            App.toast(
+                                res && res.message
+                                    ? res.message
+                                    : 'Update failed',
+                                'error'
+                            );
+                        }
+
+                    } catch (error) {
+
+                        console.error(
+                            '[Profile] Update failed:',
+                            error
+                        );
+
+                        App.toast(
+                            'Failed to update profile',
+                            'error'
+                        );
+
+                    } finally {
+
+                        elements.saveButton.classList.remove(
+                            'is-loading'
+                        );
+                    }
+
+                }
+            );
+        }
+
+
+        /* =====================================================
+           INITIAL LOAD
+           ===================================================== */
+
+        loadProfile();
+
+    }
+);
+
+</script>
+
+{% endblock %}

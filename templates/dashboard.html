@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}
+Dashboard — CyberGuard AI
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="appLayout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="brand-icon brand-icon--sm">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L4 6v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6l-8-4z"/>
+                        <path d="M9 12l2 2 4-4"/>
+                    </svg>
+                </div>
+                <span class="brand-text">CyberGuard<span class="brand-accent">AI</span></span>
+            </div>
+            <button class="sidebar-close" id="sidebarClose" aria-label="Close sidebar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- User card -->
+        <div class="user-card" id="userCard">
+            <div class="user-avatar" id="userAvatar"></div>
+            <div class="user-info">
+                <div class="user-name" id="userDisplayName">Loading...</div>
+                <div class="user-status">
+                    <span class="status-dot status-dot--online"></span>
+                    <span id="userStatusText">Online</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search -->
+        <div class="sidebar-search">
+            <div class="search-input-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input type="text" id="globalSearch" placeholder="Search users..." aria-label="Search users">
+            </div>
+            <div class="search-results" id="searchResults"></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="sidebar-tabs">
+            <button class="sidebar-tab active" data-tab="chats" id="tabChats">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                <span>Chats</span>
+            </button>
+            <button class="sidebar-tab" data-tab="requests" id="tabRequests">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                <span>Requests</span>
+                <span class="badge badge--accent" id="requestBadge" style="display:none;">0</span>
+            </button>
+        </div>
+
+        <!-- Chat list -->
+        <div class="sidebar-list sidebar-list--chats active" id="chatList">
+            <div class="empty-state empty-state--sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                <p>Your conversations will appear here.</p>
+            </div>
+        </div>
+
+        <!-- Request list -->
+        <div class="sidebar-list sidebar-list--requests" id="requestList">
+            <div class="empty-state empty-state--sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                <p>No pending friend requests.</p>
+            </div>
+        </div>
+
+        <!-- Footer nav -->
+        <div class="sidebar-footer">
+            <a href="{{ url_for('profile') }}" class="nav-item" title="Profile">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span>Profile</span>
+            </a>
+            <a href="{{ url_for('settings') }}" class="nav-item" title="Settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                <span>Settings</span>
+            </a>
+            <a href="{{ url_for('logout') }}" class="nav-item nav-item--danger" title="Logout">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Mobile overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Chat area -->
+    <main class="chat-area" id="chatArea">
+        <!-- Empty state -->
+        <div class="chat-empty" id="chatEmpty">
+            <div class="chat-empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                </svg>
+            </div>
+            <h2>Select a conversation</h2>
+            <p>Choose a friend from the sidebar to start messaging.</p>
+            <button class="btn btn--ghost btn--mobile-search" id="mobileNewChat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                New Chat
+            </button>
+        </div>
+
+        <!-- Active chat -->
+        <div class="chat-active" id="chatActive" style="display:none;">
+            <!-- Chat header -->
+            <header class="chat-header">
+                <button class="chat-back" id="chatBack" aria-label="Back to sidebar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                </button>
+                <div class="chat-header-avatar" id="chatHeaderAvatar"></div>
+                <div class="chat-header-info">
+                    <div class="chat-header-name" id="chatHeaderName">—</div>
+                    <div class="chat-header-status">
+                        <span class="status-dot" id="chatHeaderStatusDot"></span>
+                        <span id="chatHeaderStatusText">Offline</span>
+                    </div>
+                </div>
+                <div class="chat-header-actions">
+                    <button class="icon-btn" id="chatSearchBtn" aria-label="Search messages" title="Search messages">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    </button>
+                    <button class="icon-btn" id="chatMoreBtn" aria-label="More options" title="More options">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                    <div class="dropdown-menu" id="chatMoreMenu">
+                        <button class="dropdown-item" id="clearChatBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                            Clear conversation
+                        </button>
+                        <button class="dropdown-item dropdown-item--danger" id="removeFriendBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" y1="8" x2="23" y2="14"/><line x1="23" y1="8" x2="17" y2="14"/></svg>
+                            Remove friend
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Search bar (toggled) -->
+            <div class="chat-search-bar" id="chatSearchBar" style="display:none;">
+                <input type="text" id="messageSearchInput" placeholder="Search messages in this conversation...">
+                <button class="icon-btn" id="closeSearchBtn" aria-label="Close search">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Messages -->
+            <div class="messages-container" id="messagesContainer">
+                <div class="messages-list" id="messagesList"></div>
+                <div class="messages-loader" id="messagesLoader" style="display:none;">
+                    <div class="spinner spinner--sm"></div>
+                </div>
+            </div>
+
+            <!-- Typing indicator -->
+            <div class="typing-indicator" id="typingIndicator" style="display:none;">
+                <span class="typing-dots"><span></span><span></span><span></span></span>
+                <span id="typingText">Someone is typing...</span>
+            </div>
+
+            <!-- Composer -->
+            <div class="composer">
+                <button class="composer-btn" id="emojiBtn" aria-label="Emoji" title="Emoji">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                </button>
+                <div class="composer-input-wrap">
+                    <textarea id="messageInput" class="composer-input" placeholder="Type a message..." rows="1" maxlength="2000" aria-label="Message input"></textarea>
+                    <span class="char-counter" id="charCounter">0 / 2000</span>
+                </div>
+                <button class="composer-btn composer-send" id="sendBtn" aria-label="Send message" title="Send" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Notification panel -->
+    <div class="notification-panel" id="notificationPanel">
+        <div class="notification-header">
+            <h3>Notifications</h3>
+            <button class="btn btn--ghost btn--sm" id="markAllReadBtn">Mark all read</button>
+        </div>
+        <div class="notification-list" id="notificationList"></div>
+    </div>
+
+    <!-- Top bar (mobile) -->
+    <header class="topbar" id="topbar">
+        <button class="topbar-menu" id="topbarMenu" aria-label="Open menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="topbar-brand">
+            <div class="brand-icon brand-icon--xs">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L4 6v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6l-8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+            </div>
+            <span>CyberGuard AI</span>
+        </div>
+        <button class="topbar-notif" id="topbarNotif" aria-label="Notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            <span class="badge badge--accent" id="topbarNotifBadge" style="display:none;">0</span>
+        </button>
+    </header>
+
+    <!-- Connection status -->
+    <div class="connection-status" id="connectionStatus">
+        <span class="conn-dot conn-dot--connected"></span>
+        <span id="connectionText">Connected</span>
+    </div>
+
+    <!-- AI Safety Alert Modal -->
+    <div class="modal-overlay" id="safetyModal" style="display:none;">
+        <div class="modal modal--safety">
+            <div class="modal-header modal-header--alert">
+                <div class="modal-alert-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                </div>
+                <h2>AI Safety Alert</h2>
+            </div>
+            <div class="modal-body">
+                <p class="modal-alert-text">This message appears to contain aggressive or harmful content and was not delivered.</p>
+                <div class="alert-details">
+                    <div class="alert-detail-row">
+                        <span class="alert-detail-label">Confidence</span>
+                        <span class="alert-detail-value" id="alertConfidence">—</span>
+                    </div>
+                    <div class="alert-detail-row">
+                        <span class="alert-detail-label">Category</span>
+                        <span class="alert-detail-value" id="alertCategory">—</span>
+                    </div>
+                    <div class="alert-detail-row">
+                        <span class="alert-detail-label">Reason</span>
+                        <span class="alert-detail-value" id="alertReason">—</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--ghost" id="safetyDismissBtn">Dismiss</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm dialog -->
+    <div class="modal-overlay" id="confirmModal" style="display:none;">
+        <div class="modal modal--confirm">
+            <div class="modal-header">
+                <h2 id="confirmTitle">Confirm</h2>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">Are you sure?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--ghost" id="confirmCancel">Cancel</button>
+                <button class="btn btn--danger" id="confirmOk">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Emoji picker -->
+    <div class="emoji-picker" id="emojiPicker" style="display:none;">
+        <div class="emoji-grid" id="emojiGrid"></div>
+    </div>
+</div>
+{% endblock body %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+<script src="{{ url_for('static', filename='js/socket.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock scripts %}

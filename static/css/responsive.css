@@ -1,0 +1,481 @@
+/* ============================================================
+   CyberGuard AI — Responsive CSS
+   Breakpoints:
+   1440, 1280, 1024, 768, 414, 390, 375, 320
+   ============================================================ */
+
+
+/* ============================================================
+   LARGE DESKTOP
+   ============================================================ */
+
+@media (max-width: 1440px) {
+
+    :root {
+        --sidebar-width: 300px;
+    }
+}
+
+
+/* ============================================================
+   DESKTOP
+   ============================================================ */
+
+@media (max-width: 1280px) {
+
+    :root {
+        --sidebar-width: 280px;
+    }
+
+    .features {
+        max-width: 800px;
+    }
+}
+
+
+/* ============================================================
+   TABLET LANDSCAPE
+   ============================================================ */
+
+@media (max-width: 1024px) {
+
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .admin-content {
+        padding: var(--sp-4);
+    }
+}
+
+
+/* ============================================================
+   TABLET / MOBILE
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    :root {
+        --sidebar-width: 300px;
+    }
+
+
+    /* --------------------------------------------------------
+       GLOBAL APP LAYOUT
+       -------------------------------------------------------- */
+
+    .topbar {
+        display: flex;
+    }
+
+    .topbar--fixed {
+        display: flex;
+    }
+
+
+    /*
+     * Only the dashboard application is constrained.
+     * We intentionally do NOT set global html/body overflow:hidden
+     * because that can break login, register and profile pages.
+     */
+    #appLayout,
+    .app-layout {
+        height: 100dvh;
+        min-height: 100dvh;
+    }
+
+
+    /* --------------------------------------------------------
+       SIDEBAR DRAWER
+       -------------------------------------------------------- */
+
+    .sidebar {
+        position: fixed;
+        top: var(--topbar-height);
+        left: 0;
+        bottom: 0;
+
+        transform: translateX(-100%);
+
+        box-shadow: var(--shadow-lg);
+        z-index: 100;
+
+        height: calc(100dvh - var(--topbar-height));
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .sidebar-overlay.active {
+        display: block;
+    }
+
+    .sidebar-close {
+        display: flex;
+    }
+
+
+    /* --------------------------------------------------------
+       APP LAYOUT
+       -------------------------------------------------------- */
+
+    .app-layout {
+        padding-top: var(--topbar-height);
+        overflow: hidden;
+    }
+
+    .chat-area {
+        width: 100%;
+        min-width: 0;
+        min-height: 0;
+        height: 100%;
+        overflow: hidden;
+    }
+
+
+    /* --------------------------------------------------------
+       CHAT
+       -------------------------------------------------------- */
+
+    .chat-empty {
+        display: flex;
+    }
+
+    .chat-active {
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .chat-back {
+        display: flex;
+    }
+
+    .messages-container {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .composer {
+        flex-shrink: 0;
+    }
+
+    .btn--mobile-search {
+        display: inline-flex;
+    }
+
+
+    /* --------------------------------------------------------
+       AUTH
+       -------------------------------------------------------- */
+
+    .auth-container {
+        grid-template-columns: 1fr;
+        min-height: auto;
+    }
+
+    .auth-left {
+        display: none;
+    }
+
+
+    /* --------------------------------------------------------
+       FEATURES
+       -------------------------------------------------------- */
+
+    .features {
+        grid-template-columns: 1fr;
+    }
+
+
+    /* --------------------------------------------------------
+       LANDING NAVIGATION
+       -------------------------------------------------------- */
+
+    .landing-nav {
+        padding: var(--sp-3) var(--sp-4);
+    }
+
+    .nav-link {
+        display: none;
+    }
+
+    .nav-actions .btn {
+        font-size: 0.8rem;
+        padding: 8px 16px;
+    }
+
+
+    /* --------------------------------------------------------
+       STATS
+       -------------------------------------------------------- */
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+
+    /* --------------------------------------------------------
+       ADMIN SIDEBAR
+       -------------------------------------------------------- */
+
+    .admin-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+
+        transform: translateX(-100%);
+
+        z-index: 100;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .admin-sidebar.open {
+        transform: translateX(0);
+    }
+
+    .admin-content {
+        padding: var(--sp-3);
+    }
+
+
+    /* --------------------------------------------------------
+       PROFILE
+       -------------------------------------------------------- */
+
+    .profile-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+
+    /* --------------------------------------------------------
+       NOTIFICATIONS
+       -------------------------------------------------------- */
+
+    .notification-panel {
+        width: 100%;
+    }
+
+
+    /* --------------------------------------------------------
+       MESSAGE WIDTH
+       -------------------------------------------------------- */
+
+    .message {
+        max-width: 84%;
+    }
+
+
+    /* --------------------------------------------------------
+       CONNECTION STATUS
+       -------------------------------------------------------- */
+
+    .connection-status {
+        display: none;
+    }
+}
+
+
+/* ============================================================
+   MOBILE — 414px
+   ============================================================ */
+
+@media (max-width: 414px) {
+
+    .hero-title {
+        font-size: 1.75rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1rem;
+    }
+
+    .hero-actions {
+        flex-direction: column;
+    }
+
+    .hero-actions .btn {
+        width: 100%;
+    }
+
+
+    /* Stats */
+
+    .stats-bar {
+        gap: var(--sp-3);
+    }
+
+    .stat-divider {
+        display: none;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-card {
+        padding: var(--sp-3);
+    }
+
+    .stat-card-value {
+        font-size: 1.25rem;
+    }
+
+
+    /* Messages */
+
+    .message {
+        max-width: 90%;
+    }
+
+
+    /* Auth */
+
+    .auth-form-wrap {
+        padding: 0;
+    }
+
+    .auth-right {
+        padding: var(--sp-4);
+    }
+
+
+    /* Modal */
+
+    .modal {
+        max-width: calc(100vw - 32px);
+    }
+
+
+    /* Admin */
+
+    .admin-table th,
+    .admin-table td {
+        padding: 8px 10px;
+        font-size: 0.8rem;
+    }
+
+    .admin-search-wrap {
+        width: 100%;
+    }
+
+
+    /* Toast */
+
+    .toast-container {
+        left: var(--sp-3);
+        right: var(--sp-3);
+        bottom: var(--sp-3);
+    }
+
+    .toast {
+        min-width: auto;
+        max-width: none;
+        width: 100%;
+    }
+}
+
+
+/* ============================================================
+   SMALL MOBILE — 390px
+   ============================================================ */
+
+@media (max-width: 390px) {
+
+    .hero-badge {
+        font-size: 0.72rem;
+    }
+
+    .composer-btn {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+    }
+
+    .composer-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .chat-header {
+        padding: var(--sp-2) var(--sp-3);
+    }
+
+    .chat-header-avatar {
+        width: 36px;
+        height: 36px;
+        font-size: 0.875rem;
+    }
+
+    .chat-header-name {
+        font-size: 0.875rem;
+    }
+}
+
+
+/* ============================================================
+   TINY MOBILE — 375px
+   ============================================================ */
+
+@media (max-width: 375px) {
+
+    .messages-container {
+        padding: var(--sp-3);
+    }
+
+    .message-bubble {
+        font-size: 0.85rem;
+        padding: 8px 12px;
+    }
+
+    .sidebar-tabs button span {
+        font-size: 0.75rem;
+    }
+}
+
+
+/* ============================================================
+   SMALLEST DEVICES — 320px
+   ============================================================ */
+
+@media (max-width: 320px) {
+
+    .hero-title {
+        font-size: 1.5rem;
+    }
+
+    .sidebar-tabs button {
+        padding: 6px 8px;
+    }
+
+    .sidebar-tabs button span {
+        font-size: 0.72rem;
+    }
+
+    .user-card {
+        padding: var(--sp-2) var(--sp-3);
+    }
+
+    .user-avatar {
+        width: 36px;
+        height: 36px;
+        font-size: 0.875rem;
+    }
+
+    .composer-input {
+        font-size: 0.85rem;
+    }
+
+    .char-counter {
+        font-size: 0.62rem;
+    }
+}

@@ -1,0 +1,12 @@
+Flask==3.0.3
+Flask-SocketIO==5.3.6
+eventlet==0.36.1
+Flask-MySQLdb==2.0.0
+mysql-connector-python==8.4.0
+Werkzeug==3.0.3
+python-dotenv==1.0.1
+scikit-learn==1.5.1
+pandas==2.2.2
+numpy==1.26.4
+nltk==3.9.1
+joblib==1.4.2

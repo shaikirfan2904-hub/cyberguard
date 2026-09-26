@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — CyberGuard AI{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="admin-layout">
+    <!-- Admin sidebar -->
+    <aside class="admin-sidebar">
+        <div class="admin-sidebar-header">
+            <div class="admin-brand">
+                <div class="brand-icon brand-icon--sm brand-icon--admin">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L4 6v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6l-8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+                </div>
+                <div>
+                    <div class="admin-brand-title">CyberGuard AI</div>
+                    <div class="admin-brand-sub">Admin Panel</div>
+                </div>
+            </div>
+        </div>
+
+        <nav class="admin-nav">
+            <button class="admin-nav-item active" data-admin-tab="overview">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <span>Overview</span>
+            </button>
+            <button class="admin-nav-item" data-admin-tab="abusers">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01M5 07h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 14.25A2 2 0 005 17h14"/></svg>
+                <span>Abusive Users</span>
+            </button>
+            <button class="admin-nav-item" data-admin-tab="blocked">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                <span>Blocked Messages</span>
+            </button>
+            <button class="admin-nav-item" data-admin-tab="users">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                <span>All Users</span>
+            </button>
+        </nav>
+
+        <div class="admin-sidebar-footer">
+            <div class="admin-user">
+                <div class="admin-user-avatar">{{ admin_username[0] | upper }}</div>
+                <div>
+                    <div class="admin-user-name">{{ admin_username }}</div>
+                    <div class="admin-user-role">Administrator</div>
+                </div>
+            </div>
+            <a href="{{ url_for('admin_logout') }}" class="nav-item nav-item--danger">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Admin content -->
+    <main class="admin-content">
+        <!-- Overview tab -->
+        <div class="admin-tab-content active" id="adminTabOverview">
+            <div class="admin-header">
+                <h1>Dashboard Overview</h1>
+                <p>Monitor platform activity and AI safety metrics in real time.</p>
+            </div>
+
+            <!-- Stats cards -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-card-icon stat-card-icon--blue">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    </div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value" id="statTotalUsers">—</div>
+                        <div class="stat-card-label">Total Users</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-icon stat-card-icon--green">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+                    </div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value" id="statOnlineUsers">—</div>
+                        <div class="stat-card-label">Online Now</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-icon stat-card-icon--cyan">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                    </div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value" id="statTotalMessages">—</div>
+                        <div class="stat-card-label">Total Messages</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-icon stat-card-icon--red">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    </div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value" id="statBlockedMessages">—</div>
+                        <div class="stat-card-label">Blocked Messages</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-icon stat-card-icon--amber">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value" id="statFlaggedUsers">—</div>
+                        <div class="stat-card-label">Flagged Users</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-icon stat-card-icon--purple">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01M5 07h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 14.25A2 2 0 005 17h14"/></svg>
+                    </div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-value" id="statTotalViolations">—</div>
+                        <div class="stat-card-label">Total Violations</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Messages Over Time (7 days)</h3>
+                    <div class="chart-container" id="msgChartContainer">
+                        <div class="chart-bars" id="msgChart"></div>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Blocked Messages Over Time (7 days)</h3>
+                    <div class="chart-container" id="blockedChartContainer">
+                        <div class="chart-bars" id="blockedChart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent blocked messages -->
+            <div class="admin-table-card">
+                <div class="admin-table-header">
+                    <h3>Recent Blocked Messages</h3>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Message</th>
+                                <th>Classification</th>
+                                <th>Confidence</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentBlockedTable">
+                            <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Abusers tab -->
+        <div class="admin-tab-content" id="adminTabAbusers">
+            <div class="admin-header">
+                <h1>Abusive Users</h1>
+                <p>Users flagged for sending aggressive content.</p>
+            </div>
+            <div class="admin-table-card">
+                <div class="admin-table-header">
+                    <div class="admin-search-wrap">
+                        <input type="text" id="abuserSearch" placeholder="Search abusers...">
+                    </div>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Display Name</th>
+                                <th>Violations</th>
+                                <th>Risk Level</th>
+                                <th>Last Violation</th>
+                            </tr>
+                        </thead>
+                        <tbody id="abusersTable">
+                            <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Blocked messages tab -->
+        <div class="admin-tab-content" id="adminTabBlocked">
+            <div class="admin-header">
+                <h1>Blocked Messages</h1>
+                <p>All messages blocked by the AI safety system.</p>
+            </div>
+            <div class="admin-table-card">
+                <div class="admin-table-header">
+                    <div class="admin-search-wrap">
+                        <input type="text" id="blockedSearch" placeholder="Search blocked messages...">
+                    </div>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Message</th>
+                                <th>Classification</th>
+                                <th>Confidence</th>
+                                <th>Reason</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="blockedTable">
+                            <tr><td colspan="6" class="table-empty">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- All users tab -->
+        <div class="admin-tab-content" id="adminTabUsers">
+            <div class="admin-header">
+                <h1>All Users</h1>
+                <p>Complete user registry.</p>
+            </div>
+            <div class="admin-table-card">
+                <div class="admin-table-header">
+                    <div class="admin-search-wrap">
+                        <input type="text" id="usersSearch" placeholder="Search users...">
+                    </div>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Display Name</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTable">
+                            <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}
