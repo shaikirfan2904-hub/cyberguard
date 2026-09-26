@@ -614,8 +614,25 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: var(--sp-2);
     padding: var(--sp-4);
     border-bottom: 1px solid var(--border);
+}
+.notification-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.notification-close {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+}
+.notification-close svg {
+    width: 16px;
+    height: 16px;
 }
 .notification-header h3 {
     font-size: 1.1rem;
@@ -649,6 +666,36 @@
     font-size: 0.72rem;
     color: var(--text-muted);
     margin-top: 4px;
+}
+
+.abusive-user-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    color: #ffb74d;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+.user-name--flagged {
+    color: #ffcf8a;
+}
+.safety-warning-card {
+    margin-top: 6px;
+    padding: 7px 9px;
+    border: 1px solid rgba(255, 183, 77, 0.35);
+    border-radius: var(--r-sm);
+    background: rgba(255, 183, 77, 0.09);
+    color: #ffd08a;
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+.search-result-info,
+.request-info {
+    align-self: center;
+}
+.request-info .safety-warning-card {
+    max-width: 260px;
 }
 
 /* ---- Emoji picker ---- */

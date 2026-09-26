@@ -7,7 +7,6 @@
  * - Typing indicators
  * - Read receipts
  * - Message deletion
- * - Message search
  * - Friend removal
  * - PC right-click message actions
  * - Mobile long-press message actions
@@ -19,10 +18,12 @@ const ChatModule = (function () {
 
     let currentChatUser = null;
     let messages = [];
+    let chatLoadGeneration = 0;
 
     let currentPage = 1;
     let hasMore = true;
     let loadingMessages = false;
+    let loadingGeneration = null;
 
     let typingTimer = null;
     let isTyping = false;
@@ -42,6 +43,7 @@ const ChatModule = (function () {
         }
 
         currentChatUser = username;
+        chatLoadGeneration++;
 
         const emptyState = document.getElementById('chatEmpty');
         const activeChat = document.getElementById('chatActive');
@@ -54,10 +56,11 @@ const ChatModule = (function () {
             activeChat.style.display = 'flex';
         }
 
+        initChatHeaderActions();
+
         messages = [];
         currentPage = 1;
         hasMore = true;
-        loadingMessages = false;
 
         lastDateLabel = null;
         newMessagesDividerShown = false;
@@ -268,12 +271,16 @@ const ChatModule = (function () {
 
         if (
             !currentChatUser ||
-            loadingMessages
+            (loadingMessages && loadingGeneration === chatLoadGeneration)
         ) {
             return;
         }
 
+        const requestedUser = currentChatUser;
+        const requestedGeneration = chatLoadGeneration;
+        const requestedPage = currentPage;
         loadingMessages = true;
+        loadingGeneration = requestedGeneration;
 
         const loader =
             document.getElementById(
@@ -306,6 +313,13 @@ const ChatModule = (function () {
                 return;
             }
 
+            if (
+                requestedUser !== currentChatUser ||
+                requestedGeneration !== chatLoadGeneration
+            ) {
+                return;
+            }
+
             const newMsgs =
                 Array.isArray(res.data)
                     ? res.data
@@ -315,11 +329,12 @@ const ChatModule = (function () {
                 hasMore = false;
             }
 
-            if (currentPage === 1) {
+            if (requestedPage === 1) {
                 messages = newMsgs;
             } else {
                 messages = newMsgs.concat(messages);
             }
+            renderMessages(requestedPage > 1);
 
         } catch (error) {
 
@@ -330,9 +345,11 @@ const ChatModule = (function () {
 
         } finally {
 
-            loadingMessages = false;
+            if (loadingGeneration === requestedGeneration) {
+                loadingMessages = false;
+            }
 
-            if (loader) {
+            if (loader && requestedGeneration === chatLoadGeneration) {
                 loader.style.display = 'none';
             }
         }
@@ -491,8 +508,61 @@ const ChatModule = (function () {
 
         } else {
 
-            container.scrollTop =
-                container.scrollHeight;
+            scrollToBottom(container);
+        }
+    }
+
+
+    function scrollToBottom(container) {
+        if (!container) return;
+        container.style.scrollBehavior = 'auto';
+        container.scrollTop = container.scrollHeight;
+    }
+
+
+    function appendMessage(msg) {
+        const list = document.getElementById('messagesList');
+        const container = document.getElementById('messagesContainer');
+        if (!list || !container || !msg) return;
+
+        const currentUser = window.Dashboard &&
+            typeof Dashboard.getCurrentUser === 'function'
+                ? Dashboard.getCurrentUser()
+                : null;
+        const myUsername = currentUser ? currentUser.username : '';
+        const wasNearBottom = container.scrollHeight - container.scrollTop -
+            container.clientHeight < 100;
+        const emptyState = list.querySelector('.empty-state');
+        if (emptyState) list.innerHTML = '';
+
+        const dateLabel = CyberGuardApp.formatDateLabel(msg.created_at);
+        if (dateLabel !== lastDateLabel) {
+            lastDateLabel = dateLabel;
+            const separator = document.createElement('div');
+            separator.className = 'date-separator';
+            separator.innerHTML = '<span>' +
+                CyberGuardApp.escapeHtml(dateLabel) + '</span>';
+            list.appendChild(separator);
+        }
+
+        if (
+            !newMessagesDividerShown &&
+            msg.receiver === myUsername &&
+            !msg.read_at &&
+            msg.message_type !== 'blocked'
+        ) {
+            newMessagesDividerShown = true;
+            const divider = document.createElement('div');
+            divider.className = 'new-messages-divider';
+            divider.innerHTML = '<span>New Messages</span>';
+            list.appendChild(divider);
+        }
+
+        const element = createMessageElement(msg, myUsername);
+        if (element) list.appendChild(element);
+
+        if (msg.sender === myUsername || wasNearBottom) {
+            scrollToBottom(container);
         }
     }
 
@@ -986,6 +1056,26 @@ const ChatModule = (function () {
                 return;
             }
 
+            if (!everyone) {
+                messages = messages.filter(function (message) {
+                    return String(message.id) !== String(msgId);
+                });
+                if (element && element.parentNode) {
+                    element.remove();
+                }
+                CyberGuardApp.toast('Message deleted', 'success');
+                return;
+            }
+
+            const deletedMessage = messages.find(function (message) {
+                return String(message.id) === String(msgId);
+            });
+            if (deletedMessage) {
+                deletedMessage.message = 'This message was deleted.';
+                deletedMessage.is_deleted = true;
+                deletedMessage.deleted_for_everyone = true;
+            }
+
             const bubble =
                 element.querySelector(
                     '.message-bubble'
@@ -1288,8 +1378,7 @@ const ChatModule = (function () {
                 }
 
                 messages.push(data);
-
-                renderMessages(false);
+                appendMessage(data);
 
                 const input =
                     document.getElementById(
@@ -1348,8 +1437,7 @@ const ChatModule = (function () {
                 ) {
 
                     messages.push(data);
-
-                    renderMessages(false);
+                    appendMessage(data);
 
                     if (
                         CyberGuardSocket.isConnected()
@@ -1510,11 +1598,8 @@ const ChatModule = (function () {
                         true
                 };
 
-                messages.push(
-                    blockedMessage
-                );
-
-                renderMessages(false);
+                messages.push(blockedMessage);
+                appendMessage(blockedMessage);
 
                 const input =
                     document.getElementById(
@@ -1578,11 +1663,8 @@ const ChatModule = (function () {
                             true
                     };
 
-                    messages.push(
-                        blockedMessage
-                    );
-
-                    renderMessages(false);
+                    messages.push(blockedMessage);
+                    appendMessage(blockedMessage);
 
                     if (
                         CyberGuardSocket.isConnected()
@@ -1751,6 +1833,18 @@ const ChatModule = (function () {
 
     function initChatHeaderActions() {
 
+        const backButton = document.getElementById('chatBack');
+        if (backButton && !backButton.dataset.chatBound) {
+            backButton.dataset.chatBound = 'true';
+            backButton.addEventListener('click', function () {
+                if (window.Dashboard && typeof Dashboard.closeActiveChat === 'function') {
+                    Dashboard.closeActiveChat();
+                } else {
+                    closeCurrentChat();
+                }
+            });
+        }
+
         /* MORE MENU */
 
         const moreBtn =
@@ -1865,14 +1959,14 @@ const ChatModule = (function () {
                         'Remove friend',
                         'Remove ' +
                         currentChatUser +
-                        ' from your friends list?',
+                        ' as a friend and permanently delete your chat history for both of you?',
                         function (ok) {
 
                             if (
                                 ok &&
-                                typeof removeFriend === 'function'
+                                currentChatUser
                             ) {
-                                removeFriend();
+                                removeFriend(currentChatUser);
                             }
                         }
                     );
@@ -1883,151 +1977,6 @@ const ChatModule = (function () {
 
         /* SEARCH */
 
-        const searchBtn =
-            document.getElementById(
-                'chatSearchBtn'
-            );
-
-        const searchBar =
-            document.getElementById(
-                'chatSearchBar'
-            );
-
-        const closeSearch =
-            document.getElementById(
-                'closeSearchBtn'
-            );
-
-        const searchInput =
-            document.getElementById(
-                'messageSearchInput'
-            );
-
-        if (
-            searchBtn &&
-            searchBar &&
-            !searchBtn.dataset.chatBound
-        ) {
-
-            searchBtn.dataset.chatBound = 'true';
-
-            searchBtn.addEventListener(
-                'click',
-                function (event) {
-
-                    event.stopPropagation();
-
-                    const isHidden =
-                        searchBar.style.display === 'none' ||
-                        searchBar.style.display === '';
-
-                    searchBar.style.display =
-                        isHidden
-                            ? 'flex'
-                            : 'none';
-
-                    if (
-                        isHidden &&
-                        searchInput
-                    ) {
-
-                        searchInput.focus();
-                    }
-                }
-            );
-        }
-
-
-        /* CLOSE SEARCH */
-
-        if (
-            closeSearch &&
-            !closeSearch.dataset.chatBound
-        ) {
-
-            closeSearch.dataset.chatBound = 'true';
-
-            closeSearch.addEventListener(
-                'click',
-                function () {
-
-                    if (searchBar) {
-                        searchBar.style.display =
-                            'none';
-                    }
-
-                    if (searchInput) {
-                        searchInput.value = '';
-                    }
-
-                    renderMessages(false);
-                }
-            );
-        }
-
-
-        /* SEARCH MESSAGES */
-
-        if (
-            searchInput &&
-            !searchInput.dataset.chatBound
-        ) {
-
-            searchInput.dataset.chatBound = 'true';
-
-            searchInput.addEventListener(
-                'input',
-                function () {
-
-                    const query =
-                        this.value
-                            .trim()
-                            .toLowerCase();
-
-                    if (query.length < 2) {
-
-                        renderMessages(false);
-
-                        return;
-                    }
-
-                    const list =
-                        document.getElementById(
-                            'messagesList'
-                        );
-
-                    if (!list) {
-                        return;
-                    }
-
-                    list
-                        .querySelectorAll('.message')
-                        .forEach(
-                            function (message) {
-
-                                const text =
-                                    message.textContent
-                                        .toLowerCase();
-
-                                if (
-                                    text.includes(query)
-                                ) {
-
-                                    message.classList.add(
-                                        'highlighted'
-                                    );
-
-                                } else {
-
-                                    message.classList.remove(
-                                        'highlighted'
-                                    );
-                                }
-                            }
-                        );
-                }
-            );
-        }
     }
 
 
@@ -2127,20 +2076,65 @@ const ChatModule = (function () {
                 Dashboard.loadUsers();
             }
 
-            if (typeof showToast === 'function') {
-                showToast('Conversation cleared', 'success');
-            }
+            CyberGuardApp.toast('Conversation cleared', 'success');
 
         } catch (error) {
             console.error('Clear conversation error:', error);
 
-            if (typeof showToast === 'function') {
-                showToast(
-                    error.message || 'Failed to clear conversation',
+            CyberGuardApp.toast(
+                error.message || 'Failed to clear conversation',
+                'error'
+            );
+        }
+    }
+
+    async function removeFriend(username) {
+        if (!username) return;
+
+        try {
+            const response = await CyberGuardApp.api(
+                '/api/friends/' + encodeURIComponent(username),
+                { method: 'DELETE' }
+            );
+
+            if (!response || !response.success) {
+                CyberGuardApp.toast(
+                    response && response.message || 'Could not remove friend.',
                     'error'
                 );
+                return;
             }
+
+            if (window.Dashboard && typeof Dashboard.handleFriendRemoved === 'function') {
+                Dashboard.handleFriendRemoved({
+                    removed_user: username,
+                    notification_id: response.notification_id,
+                    message: response.notification_message,
+                    created_at: new Date().toISOString()
+                });
+            }
+            CyberGuardApp.toast('Friend and conversation removed.', 'success');
+        } catch (error) {
+            console.error('[Chat] Remove friend error:', error);
+            CyberGuardApp.toast('Could not remove friend. Please try again.', 'error');
         }
+    }
+
+    function closeCurrentChat() {
+        if (currentChatUser && window.CyberGuardSocket && CyberGuardSocket.isConnected()) {
+            CyberGuardSocket.emit('leave_chat', { username: currentChatUser });
+        }
+        stopTyping();
+        currentChatUser = null;
+        chatLoadGeneration++;
+        messages = [];
+
+        const active = document.getElementById('chatActive');
+        const empty = document.getElementById('chatEmpty');
+        const list = document.getElementById('messagesList');
+        if (active) active.style.display = 'none';
+        if (empty) empty.style.display = 'flex';
+        if (list) list.innerHTML = '';
     }
 
 
@@ -2161,6 +2155,9 @@ const ChatModule = (function () {
 
         initSocketHandlers:
             initSocketHandlers,
+
+        closeCurrentChat:
+            closeCurrentChat,
 
         initChatListClickFallback:
             initChatListClickFallback

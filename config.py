@@ -43,6 +43,8 @@ class Config:
     # Chat limits
     MAX_MESSAGE_LENGTH = 2000
     MESSAGES_PER_PAGE = 50
+    # Four blocked messages means the user has offended more than three times.
+    ABUSIVE_USER_FLAG_THRESHOLD = 4
 
     # Violation risk thresholds
     RISK_THRESHOLDS = {

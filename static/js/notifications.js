@@ -164,8 +164,7 @@ const Notifications = (function () {
             }).length;
 
         const badgeIds = [
-            'topbarNotifBadge',
-            'requestBadge'
+            'topbarNotifBadge'
         ];
 
         badgeIds.forEach(function (id) {
@@ -307,6 +306,29 @@ const Notifications = (function () {
                 '[Notifications] Mark all read error:',
                 error
             );
+        }
+    }
+
+    async function clearAll() {
+        try {
+            const response = await CyberGuardApp.api(
+                '/api/notifications',
+                { method: 'DELETE' }
+            );
+            if (!response || !response.success) {
+                CyberGuardApp.toast(
+                    response && response.message || 'Could not clear notifications.',
+                    'error'
+                );
+                return;
+            }
+            notifications = [];
+            render();
+            updateBadge();
+            CyberGuardApp.toast('Notifications cleared', 'success');
+        } catch (error) {
+            console.error('[Notifications] Clear error:', error);
+            CyberGuardApp.toast('Could not clear notifications.', 'error');
         }
     }
 
@@ -468,6 +490,9 @@ const Notifications = (function () {
                 'markAllReadBtn'
             );
 
+        const clearButton = document.getElementById('clearNotificationsBtn');
+        const closeButton = document.getElementById('closeNotificationPanel');
+
         const list =
             document.getElementById(
                 'notificationList'
@@ -491,6 +516,20 @@ const Notifications = (function () {
                     markAllRead();
                 }
             );
+        }
+
+        if (clearButton) {
+            clearButton.addEventListener('click', function (event) {
+                event.stopPropagation();
+                clearAll();
+            });
+        }
+
+        if (closeButton) {
+            closeButton.addEventListener('click', function (event) {
+                event.stopPropagation();
+                togglePanel(false);
+            });
         }
 
         if (list) {
@@ -533,6 +572,7 @@ const Notifications = (function () {
         init: init,
         load: load,
         add: add,
+        clearAll: clearAll,
         updateBadge: updateBadge
     };
 

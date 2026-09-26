@@ -123,6 +123,10 @@ const Dashboard = (function () {
             name.textContent =
                 currentUser.display_name ||
                 currentUser.username;
+            if (currentUser.is_flagged) {
+                name.textContent += ' ⚠ Abusive User';
+                name.classList.add('user-name--flagged');
+            }
         }
 
         if (status) {
@@ -218,6 +222,7 @@ const Dashboard = (function () {
 
                 let lastMsg = null;
                 let lastTime = '';
+                let lastTimestamp = '';
                 let unread = 0;
 
                 try {
@@ -241,6 +246,7 @@ const Dashboard = (function () {
                             messages[messages.length - 1];
 
                         if (lastMsg) {
+                            lastTimestamp = lastMsg.created_at || '';
                             lastTime =
                                 CyberGuardApp.formatTime(
                                     lastMsg.created_at
@@ -299,6 +305,7 @@ const Dashboard = (function () {
                             : '',
 
                     lastTime: lastTime,
+                    lastTimestamp: lastTimestamp,
 
                     unread: unread
                 };
@@ -327,7 +334,8 @@ const Dashboard = (function () {
             if (!a.lastMsg) return 1;
             if (!b.lastMsg) return -1;
 
-            return 0;
+            return (Date.parse(b.lastTimestamp) || 0) -
+                (Date.parse(a.lastTimestamp) || 0);
         });
 
         list.innerHTML = items.map(function (item) {
@@ -349,6 +357,10 @@ const Dashboard = (function () {
                         item.lastMsg.substring(0, 40)
                     )
                     : 'No messages yet';
+
+            const flaggedBadge = item.is_flagged
+                ? '<span class="abusive-user-badge">⚠ Abusive User</span>'
+                : '';
 
             const unreadBadge =
                 item.unread > 0
@@ -391,6 +403,7 @@ const Dashboard = (function () {
                             CyberGuardApp.escapeHtml(
                                 item.display_name
                             ) +
+                            flaggedBadge +
                         '</div>' +
 
                         '<div class="chat-list-last">' +
@@ -482,6 +495,12 @@ const Dashboard = (function () {
         list.innerHTML =
             pendingRequests.map(function (request) {
 
+                const showSafetyWarning = request.sender_flagged ||
+                    (currentUser && currentUser.is_flagged);
+                const warningText = request.sender_flagged
+                    ? '@' + request.sender + ' is flagged as an Abusive User. Review this request carefully.'
+                    : 'Your account is flagged as an Abusive User. Review this request carefully.';
+
                 return (
                     '<div class="request-item" ' +
                         'data-id="' +
@@ -510,6 +529,12 @@ const Dashboard = (function () {
                                     request.sender
                                 ) +
                             '</div>' +
+
+                            (showSafetyWarning
+                                ? '<div class="safety-warning-card">⚠ ' +
+                                    CyberGuardApp.escapeHtml(warningText) +
+                                  '</div>'
+                                : '') +
 
                         '</div>' +
 
@@ -582,6 +607,29 @@ const Dashboard = (function () {
                     if (this.disabled) {
                         return;
                     }
+
+                    const requested = pendingRequests.find(function (item) {
+                        return String(item.id) === String(id);
+                    });
+                    const flaggedParticipant = (requested && requested.sender_flagged) ||
+                        (currentUser && currentUser.is_flagged);
+                    if (action === 'accept' && flaggedParticipant && !this.dataset.safetyConfirmed) {
+                        const button = this;
+                        CyberGuardApp.confirm(
+                            'Safety warning',
+                            requested && requested.sender_flagged
+                                ? '@' + requested.sender + ' is flagged as an Abusive User. Accept this request only if you are comfortable doing so.'
+                                : 'Your account is flagged as an Abusive User. Review this request carefully before accepting.',
+                            function (confirmed) {
+                                if (confirmed) {
+                                    button.dataset.safetyConfirmed = 'true';
+                                    button.click();
+                                }
+                            }
+                        );
+                        return;
+                    }
+                    delete this.dataset.safetyConfirmed;
 
                     this.disabled = true;
 
@@ -815,6 +863,13 @@ const Dashboard = (function () {
                         '</button>';
                 }
 
+                const safetyWarning = user.is_flagged
+                    ? '<div class="safety-warning-card">⚠ This user is flagged as an Abusive User. Please review carefully before adding them.</div>'
+                    : '';
+                const senderFlagWarning = currentUser && currentUser.is_flagged
+                    ? '<div class="safety-warning-card">⚠ Your account is flagged as an Abusive User. Please review this request carefully.</div>'
+                    : '';
+
                 return (
                     '<div class="search-result-item" ' +
                         'data-username="' +
@@ -844,6 +899,13 @@ const Dashboard = (function () {
                                 ) +
                             '</div>' +
 
+                            (user.is_flagged
+                                ? '<span class="abusive-user-badge">⚠ Abusive User</span>'
+                                : '') +
+
+                            safetyWarning +
+                            senderFlagWarning +
+
                         '</div>' +
 
                         action +
@@ -872,6 +934,26 @@ const Dashboard = (function () {
                         this.dataset.username;
 
                     if (!username) return;
+
+                    const target = users.find(function (candidate) {
+                        return candidate.username === username;
+                    });
+                    const needsWarning = !!(currentUser && currentUser.is_flagged) ||
+                        !!(target && target.is_flagged);
+                    if (needsWarning && !this.dataset.safetyConfirmed) {
+                        const warning = target && target.is_flagged
+                            ? 'This user is flagged as an Abusive User. Please make sure before adding them.'
+                            : 'Your account is flagged as an Abusive User. Please review this request carefully.';
+                        const button = this;
+                        CyberGuardApp.confirm('Safety warning', warning, function (confirmed) {
+                            if (confirmed) {
+                                button.dataset.safetyConfirmed = 'true';
+                                button.click();
+                            }
+                        });
+                        return;
+                    }
+                    delete this.dataset.safetyConfirmed;
 
                     this.disabled = true;
                     this.textContent = '...';
@@ -1346,6 +1428,13 @@ const Dashboard = (function () {
             }
         );
 
+        CyberGuardSocket.on(
+            'friend_removed',
+            function (data) {
+                handleFriendRemoved(data);
+            }
+        );
+
         /*
          * Receiver gets receive_message.
          */
@@ -1431,10 +1520,44 @@ const Dashboard = (function () {
         renderChatList();
     }
 
+    function handleFriendRemoved(data) {
+        if (!data || !data.removed_user) return;
+        const removedUser = data.removed_user;
+        if (activeChatUser === removedUser) {
+            activeChatUser = null;
+            if (window.ChatModule && typeof ChatModule.closeCurrentChat === 'function') {
+                ChatModule.closeCurrentChat();
+            }
+        }
+        if (window.Notifications && typeof Notifications.add === 'function') {
+            Notifications.add({
+                id: data.notification_id,
+                title: 'Friend removed',
+                message: data.message || ('You and @' + removedUser + ' are no longer friends.'),
+                is_read: false,
+                created_at: data.created_at || new Date().toISOString()
+            });
+        }
+        loadFriends();
+    }
+
+    function closeActiveChat() {
+        activeChatUser = null;
+        if (window.ChatModule && typeof ChatModule.closeCurrentChat === 'function') {
+            ChatModule.closeCurrentChat();
+        }
+        renderChatList();
+        if (window.matchMedia('(max-width: 768px)').matches) {
+            openSidebar();
+        }
+    }
+
     return {
         init: init,
         openChat: openChat,
         refreshChatList: refreshChatList,
+        handleFriendRemoved: handleFriendRemoved,
+        closeActiveChat: closeActiveChat,
 
         getCurrentUser: function () {
             return currentUser;

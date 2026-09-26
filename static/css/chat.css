@@ -23,8 +23,9 @@
 }
 
 .chat-back {
-    display: none;
-    width: 36px; height: 36px;
+    display: flex;
+    width: 36px;
+    height: 36px;
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
@@ -78,34 +79,12 @@
     position: relative;
 }
 
-/* ---- Chat search bar ---- */
-.chat-search-bar {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    padding: var(--sp-2) var(--sp-4);
-    background: var(--bg-base);
-    border-bottom: 1px solid var(--border);
-}
-.chat-search-bar input {
-    flex: 1;
-    padding: 8px 12px;
-    background: var(--bg-dark);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-    font-size: 0.85rem;
-}
-.chat-search-bar input:focus {
-    outline: none;
-    border-color: var(--accent);
-}
-
 /* ---- Messages container ---- */
 .messages-container {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
     padding: var(--sp-4) var(--sp-5);
     display: flex;
     flex-direction: column;
@@ -439,15 +418,6 @@
 }
 .char-counter--warning { color: var(--warning); }
 .char-counter--danger { color: var(--error); }
-
-/* ---- Message highlight (search) ---- */
-.message.highlighted {
-    animation: highlight 1.5s ease;
-}
-@keyframes highlight {
-    0%, 100% { background: transparent; }
-    50% { background: rgba(0, 212, 255, 0.1); }
-}
 
 /* ---- Scrollbar for messages ---- */
 .messages-container::-webkit-scrollbar { width: 4px; }

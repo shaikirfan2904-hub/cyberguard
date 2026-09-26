@@ -1,3 +1,4 @@
+import os
 import re
 import joblib
 
@@ -6,11 +7,12 @@ import joblib
 # CONFIGURATION
 # =========================================================
 
-MODEL_FILE = "model/model.pkl"
-VECTORIZER_FILE = "model/vectorizer.pkl"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_FILE = os.path.join(BASE_DIR, "model", "model.pkl")
+VECTORIZER_FILE = os.path.join(BASE_DIR, "model", "vectorizer.pkl")
 
 # ML decision threshold
-ML_THRESHOLD = 0.50
+ML_THRESHOLD = 0.65
 
 
 # =========================================================
@@ -203,7 +205,7 @@ def check_aggressive_phrase(text):
 # MAIN AGGRESSION DETECTOR
 # =========================================================
 
-def predict_aggression(text):
+def predict_aggression(text, threshold=ML_THRESHOLD):
 
     # -----------------------------------------------------
     # Empty message
@@ -250,13 +252,18 @@ def predict_aggression(text):
         text_vector
     )[0]
 
-    safe_probability = float(
-        probabilities[0]
+    classes = list(getattr(model, "classes_", range(len(probabilities))))
+    aggressive_index = next(
+        (i for i, label in enumerate(classes)
+         if str(label).strip().upper() in {"1", "AGGRESSIVE"}),
+        min(1, len(probabilities) - 1),
     )
-
-    aggressive_probability = float(
-        probabilities[1]
+    safe_index = next(
+        (i for i in range(len(probabilities)) if i != aggressive_index),
+        aggressive_index,
     )
+    safe_probability = float(probabilities[safe_index])
+    aggressive_probability = float(probabilities[aggressive_index])
 
 
     # -----------------------------------------------------
@@ -264,7 +271,7 @@ def predict_aggression(text):
     # ML threshold
     # -----------------------------------------------------
 
-    if aggressive_probability >= ML_THRESHOLD:
+    if aggressive_probability >= float(threshold):
 
         return {
             "label": "AGGRESSIVE",

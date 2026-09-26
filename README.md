@@ -52,7 +52,6 @@ The ML model uses **contextual classification** — not simple keyword matching.
 - Message deletion (for me / for everyone)
 - Conversation clearing
 - Infinite scroll pagination
-- In-conversation message search
 
 ### Social
 - User registration with strong password validation
@@ -377,7 +376,7 @@ All settings are in `.env` (copy from `.env.example`):
 | `MYSQL_HOST` | 127.0.0.1 | MySQL host |
 | `MYSQL_USER` | root | MySQL username |
 | `MYSQL_PASSWORD` | (empty) | MySQL password |
-| `MYSQL_DB` | cyber_aggression | Database name |
+| `MYSQL_DB` | cyber_aggression_copy | Database name (must match `database/schema.sql`) |
 | `MYSQL_PORT` | 3306 | MySQL port |
 | `AGGRESSION_THRESHOLD` | 0.65 | ML blocking threshold (0-1) |
 | `SESSION_EXPIRY_HOURS` | 24 | Session lifetime |
@@ -417,7 +416,6 @@ All settings are in `.env` (copy from `.env.example`):
 |--------|----------|-------------|
 | GET | `/api/messages/<username>` | Get chat history |
 | GET | `/api/messages/<username>/unread-count` | Unread count |
-| GET | `/api/messages/search?q=` | Search messages |
 | DELETE | `/api/messages/<id>` | Delete message |
 | DELETE | `/api/messages/<username>/clear` | Clear conversation |
 

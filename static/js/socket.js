@@ -321,6 +321,8 @@ const CyberGuardSocket = (function () {
 
             'friend_request_rejected',
 
+            'friend_removed',
+
 
             /*
              * Notifications

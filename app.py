@@ -45,6 +45,13 @@ blocked_logger.addHandler(logging.FileHandler(os.path.join(Config.LOG_DIR, "bloc
 
 logger = logging.getLogger("cyberguard.app")
 
+# The original schema shipped with a placeholder digest that cannot validate
+# the documented bootstrap password. Replace that one known seed on startup.
+_INVALID_SCHEMA_ADMIN_HASH = (
+    "pbkdf2:sha256:600000$W4CyGuard$"
+    "9e8a0c7b3d2f1e6a5c4b3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1"
+)
+
 # ============================================================
 # Flask + Socket.IO initialization
 # ============================================================
@@ -106,6 +113,8 @@ def query_db(sql, params=None, fetch="all", commit=False):
             result = cursor.fetchall()
         elif fetch == "one":
             result = cursor.fetchone()
+        elif fetch == "lastrowid":
+            result = cursor.lastrowid
 
         if commit:
             conn.commit()
@@ -131,8 +140,23 @@ def query_db(sql, params=None, fetch="all", commit=False):
 def init_db():
     """Create default admin if not exists."""
     try:
+        query_db(
+            "ALTER TABLE chat_messages MODIFY message_type ENUM('text','blocked') NOT NULL DEFAULT 'text'",
+            fetch=None, commit=True
+        )
+        query_db(
+            """CREATE TABLE IF NOT EXISTS message_deletions (
+                   username VARCHAR(50) NOT NULL,
+                   message_id INT NOT NULL,
+                   deleted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                   PRIMARY KEY (username, message_id),
+                   CONSTRAINT fk_md_user FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
+                   CONSTRAINT fk_md_message FOREIGN KEY (message_id) REFERENCES chat_messages(id) ON DELETE CASCADE
+               ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""",
+            fetch=None, commit=True
+        )
         admin = query_db(
-            "SELECT id FROM admins WHERE username = %s",
+            "SELECT id, password_hash FROM admins WHERE username = %s",
             (Config.ADMIN_USERNAME,), fetch="one"
         )
         if not admin:
@@ -142,6 +166,13 @@ def init_db():
                 (Config.ADMIN_USERNAME, pw_hash), commit=True
             )
             logger.info(f"Default admin '{Config.ADMIN_USERNAME}' created.")
+        elif admin["password_hash"] == _INVALID_SCHEMA_ADMIN_HASH:
+            query_db(
+                "UPDATE admins SET password_hash = %s WHERE id = %s",
+                (generate_password_hash(Config.ADMIN_PASSWORD), admin["id"]),
+                fetch=None, commit=True
+            )
+            logger.info("Replaced the invalid schema bootstrap admin password hash.")
     except Exception as e:
         error_logger.error(f"init_db admin check failed: {e}")
 
@@ -173,13 +204,11 @@ def compute_risk_level(violations):
 def create_notification(username, ntype, title, message):
     """Insert a notification and return the row id."""
     try:
-        result = query_db(
+        return query_db(
             """INSERT INTO notifications (username, type, title, message)
                VALUES (%s, %s, %s, %s)""",
-            (username, ntype, title, message), commit=True
+            (username, ntype, title, message), fetch="lastrowid", commit=True
         )
-        nid = query_db("SELECT LAST_INSERT_ID() as id", fetch="one")
-        return nid["id"] if nid else None
     except Exception as e:
         error_logger.error(f"Notification creation failed: {e}")
         return None
@@ -437,6 +466,11 @@ def api_me():
         )
         if not user:
             return jsonify({"success": False, "message": "User not found."}), 404
+        abuse = query_db(
+            "SELECT violations FROM abusers WHERE username = %s",
+            (user["username"],), fetch="one"
+        )
+        violations = int(abuse["violations"] or 0) if abuse else 0
         return jsonify({
             "success": True, "data": {
                 "id": user["id"],
@@ -448,6 +482,8 @@ def api_me():
                 "status": user["status"],
                 "last_seen": user["last_seen"].isoformat() if user["last_seen"] else None,
                 "created_at": user["created_at"].isoformat() if user["created_at"] else None,
+                "violations": violations,
+                "is_flagged": violations >= Config.ABUSIVE_USER_FLAG_THRESHOLD,
             }
         }), 200
     except Exception as e:
@@ -521,13 +557,19 @@ def api_users():
     try:
         username = session["username"]
         friends = query_db(
-            """SELECT u.username, u.display_name, u.status, u.last_seen
+            """SELECT u.username, u.display_name, u.status, u.last_seen,
+                      COALESCE(a.violations, 0) AS violations
                FROM friendships f
                JOIN users u ON u.username = CASE WHEN f.user1 = %s THEN f.user2 ELSE f.user1 END
+               LEFT JOIN abusers a ON a.username = u.username
                WHERE f.user1 = %s OR f.user2 = %s
                ORDER BY u.display_name""",
             (username, username, username), fetch="all"
         )
+        for friend in (friends or []):
+            friend["violations"] = int(friend["violations"] or 0)
+            friend["is_flagged"] = friend["violations"] >= Config.ABUSIVE_USER_FLAG_THRESHOLD
+            friend["last_seen"] = friend["last_seen"].isoformat() if friend["last_seen"] else None
         return jsonify({"success": True, "data": friends or []}), 200
     except Exception as e:
         error_logger.error(f"Users list error: {e}")
@@ -545,9 +587,11 @@ def api_search_users():
         username = session["username"]
         pattern = f"%{q}%"
         users = query_db(
-            """SELECT username, display_name, status, last_seen
-               FROM users
-               WHERE username LIKE %s AND username != %s
+            """SELECT u.username, u.display_name, u.status, u.last_seen,
+                      COALESCE(a.violations, 0) AS violations
+               FROM users u
+               LEFT JOIN abusers a ON a.username = u.username
+               WHERE u.username LIKE %s AND u.username != %s
                LIMIT 20""",
             (pattern, username), fetch="all"
         )
@@ -573,6 +617,8 @@ def api_search_users():
                 "online": u["status"] == "online",
                 "last_seen": u["last_seen"].isoformat() if u["last_seen"] else None,
                 "friendship_status": status,
+                "violations": int(u["violations"] or 0),
+                "is_flagged": int(u["violations"] or 0) >= Config.ABUSIVE_USER_FLAG_THRESHOLD,
             })
         return jsonify({"success": True, "data": results}), 200
     except Exception as e:
@@ -634,21 +680,28 @@ def api_send_friend_request():
 
         # Check for existing pending request
         existing = query_db(
-            """SELECT id, status FROM friend_requests
+            """SELECT id, sender, receiver, status FROM friend_requests
                WHERE (sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s)
                ORDER BY id DESC LIMIT 1""",
             (session["username"], receiver, receiver, session["username"]), fetch="one"
         )
+        reused_request = False
         if existing:
             if existing["status"] == "pending":
                 return jsonify({"success": False, "message": "A friend request is already pending."}), 409
-            elif existing["status"] == "accepted":
-                return jsonify({"success": False, "message": "You are already friends."}), 409
+            elif (existing["sender"], existing["receiver"]) == (session["username"], receiver):
+                # Reuse the same-direction row to respect uq_friend_pair.
+                query_db(
+                    "UPDATE friend_requests SET status = 'pending', updated_at = NOW() WHERE id = %s",
+                    (existing["id"],), commit=True
+                )
+                reused_request = True
 
-        query_db(
-            "INSERT INTO friend_requests (sender, receiver, status) VALUES (%s, %s, 'pending')",
-            (session["username"], receiver), commit=True
-        )
+        if not reused_request:
+            query_db(
+                "INSERT INTO friend_requests (sender, receiver, status) VALUES (%s, %s, 'pending')",
+                (session["username"], receiver), commit=True
+            )
 
         # Real-time notification
         notif_id = create_notification(
@@ -680,13 +733,19 @@ def api_get_friend_requests():
     try:
         requests = query_db(
             """SELECT fr.id, fr.sender, fr.receiver, fr.status, fr.created_at,
-                      u.display_name as sender_display
+                      u.display_name as sender_display,
+                      COALESCE(a.violations, 0) AS sender_violations
                FROM friend_requests fr
                JOIN users u ON u.username = fr.sender
+               LEFT JOIN abusers a ON a.username = fr.sender
                WHERE fr.receiver = %s AND fr.status = 'pending'
                ORDER BY fr.created_at DESC""",
             (session["username"],), fetch="all"
         )
+        for item in (requests or []):
+            item["sender_violations"] = int(item["sender_violations"] or 0)
+            item["sender_flagged"] = item["sender_violations"] >= Config.ABUSIVE_USER_FLAG_THRESHOLD
+            item["created_at"] = item["created_at"].isoformat() if item["created_at"] else None
         return jsonify({"success": True, "data": requests or []}), 200
     except Exception as e:
         error_logger.error(f"Get requests error: {e}")
@@ -777,14 +836,73 @@ def api_remove_friend(username):
         if not are_friends(session["username"], username):
             return jsonify({"success": False, "message": "Not friends with this user."}), 404
 
-        query_db(
-            """DELETE FROM friendships
-               WHERE (user1 = %s AND user2 = %s) OR (user1 = %s AND user2 = %s)""",
-            (session["username"], username, username, session["username"]),
-            commit=True
+        current_user = session["username"]
+        conn = get_db()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """DELETE FROM friendships
+                   WHERE (user1 = %s AND user2 = %s) OR (user1 = %s AND user2 = %s)""",
+                (current_user, username, username, current_user)
+            )
+            cursor.execute(
+                """DELETE FROM chat_messages
+                   WHERE (sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s)""",
+                (current_user, username, username, current_user)
+            )
+            cursor.execute(
+                """DELETE FROM chat_read_status
+                   WHERE (username = %s AND friend = %s) OR (username = %s AND friend = %s)""",
+                (current_user, username, username, current_user)
+            )
+            cursor.execute(
+                """DELETE FROM conversation_clears
+                   WHERE (username = %s AND other_username = %s)
+                      OR (username = %s AND other_username = %s)""",
+                (current_user, username, username, current_user)
+            )
+            cursor.execute(
+                """UPDATE friend_requests SET status = 'rejected', updated_at = NOW()
+                   WHERE status = 'accepted'
+                     AND ((sender = %s AND receiver = %s) OR (sender = %s AND receiver = %s))""",
+                (current_user, username, username, current_user)
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cursor.close()
+            conn.close()
+
+        message = f"You and @{username} are no longer friends."
+        current_notification_id = create_notification(
+            current_user, "friend_removed", "Friend removed", message
+        )
+        other_message = f"You and @{current_user} are no longer friends."
+        other_notification_id = create_notification(
+            username, "friend_removed", "Friend removed", other_message
+        )
+        socketio.emit(
+            "friend_removed",
+            {"removed_user": username, "notification_id": current_notification_id,
+             "message": message},
+            room=current_user
+        )
+        socketio.emit(
+            "friend_removed",
+            {"removed_user": current_user, "notification_id": other_notification_id,
+             "message": other_message},
+            room=username
         )
         logger.info(f"Friend removed: {session['username']} x {username}")
-        return jsonify({"success": True, "message": "Friend removed."}), 200
+        return jsonify({
+            "success": True,
+            "message": "Friend removed and conversation deleted.",
+            "removed_user": username,
+            "notification_id": current_notification_id,
+            "notification_message": message,
+        }), 200
     except Exception as e:
         error_logger.error(f"Remove friend error: {e}")
         return jsonify({"success": False, "message": "Failed to remove friend."}), 500
@@ -793,32 +911,6 @@ def api_remove_friend(username):
 # ============================================================
 # Messages API
 # ============================================================
-@app.route("/api/messages/search")
-@login_required
-def api_search_messages():
-    """Search messages in all conversations."""
-    q = (request.args.get("q") or "").strip()
-    if len(q) < 2:
-        return jsonify({"success": True, "data": []}), 200
-
-    try:
-        pattern = f"%{q}%"
-        messages = query_db(
-            """SELECT id, sender, receiver, message, created_at
-               FROM chat_messages
-               WHERE (sender = %s OR receiver = %s)
-               AND message LIKE %s AND is_deleted = FALSE
-               ORDER BY created_at DESC LIMIT 50""",
-            (session["username"], session["username"], pattern), fetch="all"
-        )
-        for m in (messages or []):
-            m["created_at"] = m["created_at"].isoformat() if m["created_at"] else None
-        return jsonify({"success": True, "data": messages or []}), 200
-    except Exception as e:
-        error_logger.error(f"Search messages error: {e}")
-        return jsonify({"success": False, "message": "Search failed."}), 500
-
-
 @app.route("/api/messages/<username>")
 @login_required
 def api_get_messages(username):
@@ -827,7 +919,10 @@ def api_get_messages(username):
         if not are_friends(session["username"], username):
             return jsonify({"success": False, "message": "You can only chat with friends."}), 403
 
-        page = int(request.args.get("page", "1"))
+        try:
+            page = max(1, int(request.args.get("page", "1")))
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Page must be a positive integer."}), 400
         per_page = Config.MESSAGES_PER_PAGE
         offset = (page - 1) * per_page
 
@@ -850,7 +945,11 @@ def api_get_messages(username):
                 ),
                 '1970-01-01 00:00:00'
             )
-            ORDER BY created_at DESC
+            AND NOT EXISTS (
+                SELECT 1 FROM message_deletions md
+                WHERE md.message_id = chat_messages.id AND md.username = %s
+            )
+            ORDER BY created_at DESC, id DESC
             LIMIT %s OFFSET %s""",
             (
                 session["username"],
@@ -859,6 +958,7 @@ def api_get_messages(username):
                 session["username"],
                 session["username"],
                 username,
+                session["username"],
                 per_page,
                 offset
             ),
@@ -903,12 +1003,17 @@ def api_get_unread_count(username):
                 ),
                 '1970-01-01 00:00:00'
             )
+            AND NOT EXISTS (
+                SELECT 1 FROM message_deletions md
+                WHERE md.message_id = chat_messages.id AND md.username = %s
+            )
             """,
             (
                 username,
                 session["username"],
                 session["username"],
-                username
+                username,
+                session["username"]
             ),
             fetch="one"
         )
@@ -951,7 +1056,7 @@ def api_delete_message(msg_id):
                 commit=True
             )
 
-            # Send real-time deletion event to the receiver
+            # Send one real-time deletion event to the receiver.
             socketio.emit(
                 "message_deleted",
                 {
@@ -964,25 +1069,13 @@ def api_delete_message(msg_id):
                 room=msg["receiver"]
             )
 
-            # Notify the other user immediately
-            socketio.emit(
-                "message_deleted",
-                {
-                    "message_id": msg_id,
-                    "sender": msg["sender"],
-                    "receiver": msg["receiver"],
-                    "message": "This message was deleted.",
-                    "deleted_for_everyone": True
-                },
-                room=msg["receiver"]
-            )
         else:
             # Delete for me: check if user is sender or receiver
             if msg["sender"] != session["username"] and msg["receiver"] != session["username"]:
                 return jsonify({"success": False, "message": "Not authorized."}), 403
             query_db(
-                "UPDATE chat_messages SET is_deleted = TRUE WHERE id = %s",
-                (msg_id,), commit=True
+                "INSERT IGNORE INTO message_deletions (username, message_id) VALUES (%s, %s)",
+                (session["username"], msg_id), commit=True
             )
 
         return jsonify({"success": True, "message": "Message deleted."}), 200
@@ -1053,6 +1146,20 @@ def api_get_notifications():
         return jsonify({"success": False, "message": "Failed to load notifications."}), 500
 
 
+@app.route("/api/notifications", methods=["DELETE"])
+@login_required
+def api_clear_notifications():
+    try:
+        query_db(
+            "DELETE FROM notifications WHERE username = %s",
+            (session["username"],), fetch=None, commit=True
+        )
+        return jsonify({"success": True, "message": "Notifications cleared."}), 200
+    except Exception as e:
+        error_logger.error(f"Clear notifications error: {e}")
+        return jsonify({"success": False, "message": "Failed to clear notifications."}), 500
+
+
 @app.route("/api/notifications/<int:notif_id>/read", methods=["POST"])
 @login_required
 def api_mark_notification_read(notif_id):
@@ -1120,7 +1227,10 @@ def api_admin_stats():
         online_users = query_db("SELECT COUNT(*) as cnt FROM users WHERE status = 'online'", fetch="one")["cnt"]
         total_messages = query_db("SELECT COUNT(*) as cnt FROM chat_messages WHERE is_deleted = FALSE", fetch="one")["cnt"]
         blocked_messages = query_db("SELECT COUNT(*) as cnt FROM blocked_messages", fetch="one")["cnt"]
-        flagged_users = query_db("SELECT COUNT(*) as cnt FROM abusers WHERE violations > 0", fetch="one")["cnt"]
+        flagged_users = query_db(
+            "SELECT COUNT(*) as cnt FROM abusers WHERE violations >= %s",
+            (Config.ABUSIVE_USER_FLAG_THRESHOLD,), fetch="one"
+        )["cnt"]
         total_violations = query_db("SELECT COALESCE(SUM(violations), 0) as cnt FROM abusers", fetch="one")["cnt"]
 
         # Messages over time (last 7 days)
@@ -1364,7 +1474,10 @@ def handle_send_message(data):
     # Normalize both formats here.
     # ------------------------------------------------------------
     try:
-        result = predict_aggression(message_text)
+        result = predict_aggression(
+            message_text,
+            threshold=Config.AGGRESSION_THRESHOLD
+        )
 
         if not isinstance(result, dict):
             raise ValueError("Detection engine returned an invalid result.")
@@ -1479,24 +1592,20 @@ def handle_send_message(data):
             # Only this privacy-safe placeholder enters chat history.
             blocked_placeholder = "Message blocked due to privacy."
 
-            query_db(
+            blocked_message_id = query_db(
                 """INSERT INTO chat_messages
                    (sender, receiver, message, message_type, delivered_at)
                    VALUES (%s, %s, %s, 'blocked', NOW())""",
                 (sender, receiver, blocked_placeholder),
-                commit=True
+                fetch="lastrowid", commit=True
             )
 
             blocked_msg = query_db(
                 """SELECT id, sender, receiver, message, message_type,
                           created_at, delivered_at, read_at
                    FROM chat_messages
-                   WHERE sender = %s
-                     AND receiver = %s
-                     AND message_type = 'blocked'
-                   ORDER BY id DESC
-                   LIMIT 1""",
-                (sender, receiver),
+                   WHERE id = %s""",
+                (blocked_message_id,),
                 fetch="one"
             )
 
@@ -1573,23 +1682,20 @@ def handle_send_message(data):
     # SAFE MESSAGE — store and deliver
     # ------------------------------------------------------------
     try:
-        query_db(
+        message_id = query_db(
             """INSERT INTO chat_messages
                (sender, receiver, message, message_type, delivered_at)
                VALUES (%s, %s, %s, 'text', NOW())""",
             (sender, receiver, message_text),
-            commit=True
+            fetch="lastrowid", commit=True
         )
 
         msg = query_db(
             """SELECT id, sender, receiver, message, message_type,
                       created_at, delivered_at, read_at
                FROM chat_messages
-               WHERE sender = %s
-                 AND receiver = %s
-               ORDER BY id DESC
-               LIMIT 1""",
-            (sender, receiver),
+               WHERE id = %s""",
+            (message_id,),
             fetch="one"
         )
 

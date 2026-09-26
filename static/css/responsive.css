@@ -84,8 +84,11 @@
      */
     #appLayout,
     .app-layout {
-        height: 100dvh;
-        min-height: 100dvh;
+        position: fixed;
+        inset: var(--topbar-height) 0 0;
+        width: 100%;
+        height: auto;
+        min-height: 0;
     }
 
 
@@ -125,7 +128,7 @@
        -------------------------------------------------------- */
 
     .app-layout {
-        padding-top: var(--topbar-height);
+        padding-top: 0;
         overflow: hidden;
     }
 
@@ -147,7 +150,8 @@
     }
 
     .chat-active {
-        height: 100%;
+        flex: 1 1 0;
+        height: auto;
         min-height: 0;
         overflow: hidden;
     }
@@ -166,6 +170,7 @@
 
     .composer {
         flex-shrink: 0;
+        padding-bottom: calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
     }
 
     .btn--mobile-search {
