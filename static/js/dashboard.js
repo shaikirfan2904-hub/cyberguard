@@ -27,6 +27,9 @@ const Dashboard = (function () {
         if (uiHandlersInitialized) return;
 
         uiHandlersInitialized = true;
+        document.documentElement.classList.add('dashboard-page');
+        document.body.classList.add('dashboard-page');
+        syncMobileVisualViewport();
 
         // Browsers may restore a protected page from the back/forward cache
         // without requesting it again. Revalidate the session before keeping
@@ -35,10 +38,10 @@ const Dashboard = (function () {
             if (!event.persisted) return;
             fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' })
                 .then(function (response) {
-                    if (!response.ok) window.location.replace('/login');
+                    if (!response.ok) window.location.replace('/');
                 })
                 .catch(function () {
-                    window.location.replace('/login');
+                    window.location.replace('/');
                 });
         });
 
@@ -53,10 +56,10 @@ const Dashboard = (function () {
         });
 
         initSocketHandlers();
+        initLogoutHistory();
         initSearch();
         initTabs();
         initSidebarToggle();
-        initNotificationToggle();
 
         /*
          * Load the authenticated user first.
@@ -80,6 +83,10 @@ const Dashboard = (function () {
             console.warn('[Dashboard] Could not load settings:', error);
         }
 
+        if (window.Notifications) {
+            Notifications.init();
+        }
+
         /*
          * Start Socket.IO after authentication is confirmed.
          */
@@ -93,13 +100,35 @@ const Dashboard = (function () {
             loadRequests()
         ]);
 
-        /*
-         * Initialize notifications after the dashboard
-         * has been successfully loaded.
-         */
-        if (window.Notifications) {
-            Notifications.init();
+    }
+
+    function syncMobileVisualViewport() {
+        const viewport = window.visualViewport;
+        const update = function () {
+            if (!window.matchMedia('(max-width: 768px)').matches) {
+                document.documentElement.style.removeProperty('--visual-viewport-height');
+                return;
+            }
+            const height = viewport ? viewport.height : window.innerHeight;
+            document.documentElement.style.setProperty('--visual-viewport-height', height + 'px');
+        };
+        update();
+        window.addEventListener('resize', update, { passive: true });
+        if (viewport) {
+            viewport.addEventListener('resize', update, { passive: true });
+            viewport.addEventListener('scroll', update, { passive: true });
         }
+    }
+
+    function initLogoutHistory() {
+        const form = document.querySelector('.sidebar-logout-form');
+        if (!form) return;
+
+        form.addEventListener('submit', function () {
+            // Turn this protected history entry into the public home URL before
+            // logout navigates to the login page. Back can then never reopen chat.
+            history.replaceState({}, '', '/');
+        });
     }
 
     /* =========================================================
@@ -901,13 +930,6 @@ const Dashboard = (function () {
                         '</button>';
                 }
 
-                const safetyWarning = user.is_flagged
-                    ? '<div class="safety-warning-card">⚠ This user is flagged as an Abusive User. Please review carefully before adding them.</div>'
-                    : '';
-                const senderFlagWarning = currentUser && currentUser.is_flagged
-                    ? '<div class="safety-warning-card">⚠ Your account is flagged as an Abusive User. Please review this request carefully.</div>'
-                    : '';
-
                 return (
                     '<div class="search-result-item" ' +
                         'data-username="' +
@@ -940,9 +962,6 @@ const Dashboard = (function () {
                             (user.is_flagged
                                 ? '<span class="abusive-user-badge">⚠ Abusive User</span>'
                                 : '') +
-
-                            safetyWarning +
-                            senderFlagWarning +
 
                         '</div>' +
 
@@ -1281,33 +1300,6 @@ const Dashboard = (function () {
                 openSidebar
             );
         }
-    }
-
-    /* =========================================================
-       NOTIFICATIONS
-       ========================================================= */
-
-    function initNotificationToggle() {
-        const button =
-            document.getElementById(
-                'topbarNotif'
-            );
-
-        if (!button) return;
-
-        button.addEventListener(
-            'click',
-            function () {
-
-                if (
-                    window.Notifications &&
-                    typeof Notifications.init ===
-                    'function'
-                ) {
-                    Notifications.init();
-                }
-            }
-        );
     }
 
     /* =========================================================

@@ -40,11 +40,25 @@ const Auth = (function () {
         return el ? el.value : '';
     }
 
+    function makeBackReturnHome() {
+        if (history.state && history.state.cyberGuardAuthPage) return;
+
+        history.pushState(
+            Object.assign({}, history.state || {}, { cyberGuardAuthPage: true }),
+            '',
+            window.location.href
+        );
+        window.addEventListener('popstate', function () {
+            window.location.replace('/');
+        });
+    }
+
     /* =========================================================
        Login
        ========================================================= */
 
     function initLogin() {
+        makeBackReturnHome();
         const form = document.getElementById('loginForm');
 
         if (!form) return;
@@ -114,6 +128,7 @@ const Auth = (function () {
        ========================================================= */
 
     function initRegister() {
+        makeBackReturnHome();
         const form = document.getElementById('registerForm');
 
         if (!form) return;

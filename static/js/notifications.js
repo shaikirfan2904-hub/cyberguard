@@ -177,9 +177,7 @@ const Notifications = (function () {
                     !notification.is_read;
             }).length;
 
-        const badgeIds = [
-            'topbarNotifBadge'
-        ];
+        const badgeIds = ['topbarNotifBadge', 'sidebarNotifBadge'];
 
         badgeIds.forEach(function (id) {
 
@@ -480,10 +478,10 @@ const Notifications = (function () {
                 'notificationPanel'
             );
 
-        const toggle =
-            document.getElementById(
-                'topbarNotif'
-            );
+        const toggles = [
+            document.getElementById('topbarNotif'),
+            document.getElementById('sidebarNotif')
+        ].filter(Boolean);
 
         if (!panel) {
             return;
@@ -491,7 +489,7 @@ const Notifications = (function () {
 
         if (
             panel.contains(event.target) ||
-            (toggle && toggle.contains(event.target))
+            toggles.some(function (toggle) { return toggle.contains(event.target); })
         ) {
             return;
         }
@@ -526,10 +524,10 @@ const Notifications = (function () {
                 'notificationPanel'
             );
 
-        const toggle =
-            document.getElementById(
-                'topbarNotif'
-            );
+        const toggles = [
+            document.getElementById('topbarNotif'),
+            document.getElementById('sidebarNotif')
+        ].filter(Boolean);
 
         const markAll =
             document.getElementById(
@@ -544,7 +542,7 @@ const Notifications = (function () {
                 'notificationList'
             );
 
-        if (toggle) {
+        toggles.forEach(function (toggle) {
             toggle.addEventListener(
                 'click',
                 function (event) {
@@ -552,7 +550,7 @@ const Notifications = (function () {
                     togglePanel();
                 }
             );
-        }
+        });
 
         if (markAll) {
             markAll.addEventListener(

@@ -281,6 +281,8 @@ const CyberGuardSocket = (function () {
 
             'message_blocked',
 
+            'message_deleted',
+
 
             /*
              * Typing

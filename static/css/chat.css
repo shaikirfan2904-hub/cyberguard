@@ -184,7 +184,7 @@
 .message-bubble {
     display: flex;
     flex-direction: column;
-    padding: 10px 14px 8px;
+    padding: 10px 14px 24px;
     min-width: 104px;
     border-radius: var(--r-lg);
     font-size: 0.9rem;
@@ -201,8 +201,9 @@
 }
 
 .message--out .message-bubble {
-    background: var(--accent-dim);
+    background: var(--surface);
     color: #fff;
+    border: 1px solid var(--border);
     border-bottom-right-radius: var(--sp-1);
 }
 .message--in .message-bubble {
@@ -221,6 +222,10 @@
 
 .message-meta {
     display: flex !important;
+    position: absolute;
+    right: 10px;
+    bottom: 7px;
+    z-index: 2;
     align-items: center;
     gap: 3px;
     align-self: flex-end;
@@ -234,7 +239,8 @@
     visibility: visible;
     opacity: 1;
 }
-.message--out .message-meta { color: rgba(255,255,255,.72); }
+.message--out .message-meta { color: #d9f5ff; }
+.message--in .message-meta { color: #a9bac6; }
 
 .message-time {
     display: inline-block !important;
@@ -407,6 +413,7 @@
 
 .composer-input-wrap {
     flex: 1;
+    min-width: 0;
     position: relative;
 }
 .composer-input {

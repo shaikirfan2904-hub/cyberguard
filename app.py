@@ -1263,11 +1263,16 @@ def handle_disconnect():
         still_connected = username in connected_users.values()
         if not still_connected:
             try:
+                try:
+                    is_visible = get_user_preferences(username)["onlineStatus"]
+                except Exception:
+                    is_visible = True
                 query_db(
                     "UPDATE users SET status = 'offline', last_seen = NOW() WHERE username = %s",
                     (username,), commit=True
                 )
-                emit("user_offline", {"username": username})
+                if is_visible:
+                    emit("user_offline", {"username": username})
             except Exception as e:
                 error_logger.error(f"Socket disconnect DB error: {e}")
         logger.info(f"Socket disconnected: {username}")
@@ -1525,6 +1530,7 @@ def handle_send_message(data):
                     "message": blocked_placeholder,
                     "classification": label,
                     "violations": new_count,
+                    "reason": "The message was identified as aggressive or harmful.",
                 }
             )
 

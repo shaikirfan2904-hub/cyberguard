@@ -791,23 +791,33 @@ const ChatModule = (function () {
                 '</div>' +
 
                 actions +
-
-                '<div class="message-meta">' +
-
-                '<span class="message-time">' +
-                    visibleMessageTime +
-                '</span>' +
-
-                statusIcon +
-
-                '</div>' +
-
             '</div>';
 
-        const timeElement = div.querySelector('.message-time');
-        if (timeElement) {
-            timeElement.textContent = visibleMessageTime;
-            timeElement.setAttribute('aria-label', 'Sent at ' + visibleMessageTime);
+        // Build the timestamp outside the message HTML string so it cannot be
+        // lost to escaping or overwritten when message content is refreshed.
+        const bubble = div.querySelector('.message-bubble');
+        const meta = document.createElement('div');
+        meta.className = 'message-meta';
+        meta.setAttribute('aria-label', 'Message time and delivery status');
+        meta.style.cssText = 'display:flex;position:absolute;right:10px;bottom:7px;z-index:2;align-items:center;justify-content:flex-end;gap:3px;min-height:12px;visibility:visible;opacity:1;white-space:nowrap;line-height:1;color:' + (isOutgoing ? '#d9f5ff' : '#a9bac6');
+
+        const timeElement = document.createElement('time');
+        timeElement.className = 'message-time';
+        timeElement.dateTime = messageDate.toISOString();
+        timeElement.textContent = visibleMessageTime;
+        timeElement.setAttribute('aria-label', 'Sent at ' + visibleMessageTime);
+        timeElement.style.cssText = 'display:inline-block;visibility:visible;opacity:1;font-size:10px;font-weight:500;line-height:1;color:inherit;';
+        meta.appendChild(timeElement);
+
+        if (statusIcon) {
+            const status = document.createElement('span');
+            status.innerHTML = statusIcon;
+            meta.appendChild(status.firstElementChild);
+        }
+
+        if (bubble) {
+            bubble.style.paddingBottom = '24px';
+            bubble.appendChild(meta);
         }
 
         /* =====================================================
@@ -1324,6 +1334,15 @@ const ChatModule = (function () {
 
             return;
         }
+
+        // Keep the mobile software keyboard open for consecutive messages.
+        if (window.matchMedia('(max-width: 1024px)').matches) {
+            try {
+                input.focus({ preventScroll: true });
+            } catch (error) {
+                input.focus();
+            }
+        }
     }
 
 
@@ -1741,12 +1760,8 @@ const ChatModule = (function () {
 
                 if (CyberGuardApp.isSettingEnabled('warningDisplay')) {
                     const modal = document.getElementById('safetyModal');
-                    const category = document.getElementById('alertCategory');
                     const reason = document.getElementById('alertReason');
-                    const confidence = document.getElementById('alertConfidence');
-                    if (category) category.textContent = data.classification || 'Aggressive content';
-                    if (reason) reason.textContent = 'The message was blocked by the AI safety filter.';
-                    if (confidence) confidence.textContent = '—';
+                    if (reason) reason.textContent = data.reason || 'The message was flagged as aggressive or harmful.';
                     if (modal) modal.style.display = 'flex';
                 }
             }

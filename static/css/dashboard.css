@@ -53,6 +53,24 @@
     padding: var(--sp-3) var(--sp-4);
     border-bottom: 1px solid var(--border);
 }
+.sidebar-notif {
+    display: none;
+    position: relative;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+}
+.sidebar-notif svg { width: 19px; height: 19px; }
+.sidebar-notif .badge {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    justify-content: center;
+    font-size: 0.65rem;
+}
 
 .user-avatar {
     width: 40px; height: 40px;
@@ -607,6 +625,7 @@
     top: 0; right: 0;
     width: 360px;
     height: 100vh;
+    height: 100dvh;
     background: var(--bg-elev);
     border-left: 1px solid var(--border);
     box-shadow: var(--shadow-lg);
@@ -705,36 +724,3 @@
 .request-info .safety-warning-card {
     max-width: 260px;
 }
-
-/* ---- Emoji picker ---- */
-.emoji-picker {
-    position: absolute;
-    bottom: 100%;
-    left: 0;
-    margin-bottom: var(--sp-2);
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-md);
-    box-shadow: var(--shadow-lg);
-    padding: var(--sp-2);
-    z-index: 100;
-}
-.emoji-grid {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 2px;
-    max-width: 320px;
-    max-height: 200px;
-    overflow-y: auto;
-}
-.emoji-item {
-    width: 36px; height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    border-radius: var(--r-sm);
-    cursor: pointer;
-    transition: var(--t-fast);
-}
-.emoji-item:hover { background: var(--surface-hover); }
