@@ -687,6 +687,21 @@ const ChatModule = (function () {
                     msg.message || ''
                 );
 
+        // Always derive a visible, locale-formatted time from the message's
+        // stored datetime. Missing timestamps occur only for unsaved optimistic
+        // messages, so show the current system time until the server confirms.
+        const rawCreatedAt = msg.created_at || msg.timestamp || msg.time;
+        const parsedCreatedAt = rawCreatedAt
+            ? new Date(String(rawCreatedAt).replace(' ', 'T'))
+            : new Date();
+        const messageDate = Number.isNaN(parsedCreatedAt.getTime())
+            ? new Date()
+            : parsedCreatedAt;
+        const visibleMessageTime = messageDate.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
         /* STATUS ICON */
 
         let statusIcon = '';
@@ -780,9 +795,7 @@ const ChatModule = (function () {
                 '<div class="message-meta">' +
 
                 '<span class="message-time">' +
-                    CyberGuardApp.formatTimeShort(
-                        msg.created_at
-                    ) +
+                    visibleMessageTime +
                 '</span>' +
 
                 statusIcon +
@@ -790,6 +803,12 @@ const ChatModule = (function () {
                 '</div>' +
 
             '</div>';
+
+        const timeElement = div.querySelector('.message-time');
+        if (timeElement) {
+            timeElement.textContent = visibleMessageTime;
+            timeElement.setAttribute('aria-label', 'Sent at ' + visibleMessageTime);
+        }
 
         /* =====================================================
            RIGHT CLICK — PC

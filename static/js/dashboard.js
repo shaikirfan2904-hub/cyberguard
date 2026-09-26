@@ -28,6 +28,20 @@ const Dashboard = (function () {
 
         uiHandlersInitialized = true;
 
+        // Browsers may restore a protected page from the back/forward cache
+        // without requesting it again. Revalidate the session before keeping
+        // the restored dashboard visible.
+        window.addEventListener('pageshow', function (event) {
+            if (!event.persisted) return;
+            fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' })
+                .then(function (response) {
+                    if (!response.ok) window.location.replace('/login');
+                })
+                .catch(function () {
+                    window.location.replace('/login');
+                });
+        });
+
         window.addEventListener('popstate', function () {
             if (activeChatUser && chatHistoryEntryActive &&
                 !(history.state && history.state.cyberGuardChat)) {
@@ -1303,7 +1317,7 @@ const Dashboard = (function () {
     function openChat(username) {
         if (!username) return;
 
-        if (!activeChatUser && window.matchMedia('(max-width: 1024px)').matches) {
+        if (!activeChatUser) {
             history.pushState(
                 Object.assign({}, history.state || {}, { cyberGuardChat: true }),
                 '',

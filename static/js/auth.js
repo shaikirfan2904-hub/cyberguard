@@ -1,6 +1,6 @@
 /**
  * CyberGuard AI — Authentication JS
- * Handles login, register, and admin login forms.
+ * Handles login and registration forms.
  */
 
 const Auth = (function () {
@@ -301,85 +301,12 @@ const Auth = (function () {
     }
 
     /* =========================================================
-       Admin Login
-       ========================================================= */
-
-    function initAdminLogin() {
-        const form =
-            document.getElementById('adminLoginForm');
-
-        if (!form) return;
-
-        form.addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            showFieldError('');
-            setLoading(true);
-
-            try {
-                const username = getInput('username').trim();
-                const password = getInput('password');
-
-                if (!username || !password) {
-                    showFieldError(
-                        'Please enter admin credentials.'
-                    );
-                    return;
-                }
-
-                const res = await CyberGuardApp.api(
-                    '/api/admin/login',
-                    {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            username: username,
-                            password: password
-                        })
-                    }
-                );
-
-                if (res && res.success) {
-                    CyberGuardApp.toast(
-                        'Admin login successful',
-                        'success'
-                    );
-
-                    setTimeout(function () {
-                        window.location.href = '/admin';
-                    }, 500);
-
-                    return;
-                }
-
-                showFieldError(
-                    (res && res.message) ||
-                    'Admin login failed.'
-                );
-
-            } catch (error) {
-                console.error(
-                    '[Auth] Admin login error:',
-                    error
-                );
-
-                showFieldError(
-                    'Something went wrong. Please try again.'
-                );
-
-            } finally {
-                setLoading(false);
-            }
-        });
-    }
-
-    /* =========================================================
        Public API
        ========================================================= */
 
     return {
         initLogin: initLogin,
-        initRegister: initRegister,
-        initAdminLogin: initAdminLogin
+        initRegister: initRegister
     };
 
 })();

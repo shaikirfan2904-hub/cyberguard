@@ -28,10 +28,6 @@ class Config:
     SESSION_EXPIRY_HOURS = int(os.getenv("SESSION_EXPIRY_HOURS", "24"))
     PERMANENT_SESSION_LIFETIME = 3600 * SESSION_EXPIRY_HOURS
 
-    # Admin defaults
-    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
-
     # File paths
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     MODEL_DIR = os.path.join(BASE_DIR, "model")

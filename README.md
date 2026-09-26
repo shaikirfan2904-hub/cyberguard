@@ -18,19 +18,18 @@ CyberGuard AI is an industry-grade real-time private messaging platform with an 
 8. [Database Setup (XAMPP + phpMyAdmin)](#database-setup-xampp--phpmyadmin)
 9. [ML Model Training](#ml-model-training)
 10. [Running the Application](#running-the-application)
-11. [Default Admin Setup](#default-admin-setup)
-12. [Configuration](#configuration)
-13. [API Reference](#api-reference)
-14. [Socket.IO Events](#socketio-events)
-15. [Security Notes](#security-notes)
-16. [Troubleshooting](#troubleshooting)
-17. [Testing Checklist](#testing-checklist)
+11. [Configuration](#configuration)
+12. [API Reference](#api-reference)
+13. [Socket.IO Events](#socketio-events)
+14. [Security Notes](#security-notes)
+15. [Troubleshooting](#troubleshooting)
+16. [Testing Checklist](#testing-checklist)
 
 ---
 
 ## Project Overview
 
-CyberGuard AI detects and blocks aggressive or harmful messages in real time using a trained ML classifier (TF-IDF + Logistic Regression). When a message is flagged as aggressive, it is **not delivered** to the recipient — the sender receives an AI Safety Alert, a violation is recorded, and the event is logged for admin monitoring.
+CyberGuard AI detects and blocks aggressive or harmful messages in real time using a trained ML classifier (TF-IDF + Logistic Regression). When a message is flagged as aggressive, it is **not delivered** to the recipient — the sender receives an AI Safety Alert, a violation is recorded, and the event is logged for safety auditing.
 
 The ML model uses **contextual classification** — not simple keyword matching. For example:
 
@@ -68,16 +67,7 @@ The ML model uses **contextual classification** — not simple keyword matching.
 - Configurable detection threshold (default 0.65)
 - AI Safety Alert modal with confidence, category, and reason
 - Violation tracking with risk levels (LOW → MEDIUM → HIGH → CRITICAL)
-- Blocked message storage for admin review
-
-### Admin Dashboard
-- Separate admin login (`/admin_login`)
-- Dashboard cards: total users, online users, messages, blocked messages, flagged users, violations
-- Bar charts: messages over time, blocked messages over time
-- Abusive users table with risk badges
-- Blocked messages table with confidence bars
-- All users table with status indicators
-- Search and filter across all tables
+- Blocked message storage for safety auditing
 
 ### UI/UX
 - Dark cybersecurity theme with electric blue accents
@@ -117,7 +107,6 @@ Message → Text Preprocessing → TF-IDF Vectorizer → ML Model → Probabilit
                                                     Deliver              Block + Warn
                                                                          + Violation
                                                                          + Store
-                                                                         + Admin Log
 ```
 
 ---
@@ -175,8 +164,6 @@ cyberguard-ai/
 │   ├── dashboard.html        # Main chat interface
 │   ├── profile.html          # User profile
 │   ├── settings.html         # User settings
-│   ├── admin_login.html      # Admin login
-│   └── admin.html            # Admin dashboard
 │
 ├── static/
 │   ├── css/
@@ -184,16 +171,14 @@ cyberguard-ai/
 │   │   ├── auth.css          # Landing & auth pages
 │   │   ├── dashboard.css     # Sidebar, layout, profile, settings
 │   │   ├── chat.css          # Chat area, messages, composer
-│   │   ├── admin.css         # Admin dashboard
 │   │   └── responsive.css    # Responsive breakpoints
 │   ├── js/
 │   │   ├── app.js            # Core utilities (API, toast, modal)
-│   │   ├── auth.js           # Login, register, admin login
+│   │   ├── auth.js           # Login and registration
 │   │   ├── socket.js         # Socket.IO connection manager
 │   │   ├── dashboard.js      # Sidebar, chat list, friend requests
 │   │   ├── chat.js           # Message display, sending, typing
 │   │   ├── notifications.js  # Notification panel & badges
-│   │   └── admin.js          # Admin dashboard logic
 │   └── images/
 │
 └── database/
@@ -269,24 +254,8 @@ This creates the `cyber_aggression` database with all tables, indexes, and const
 ### 3. Verify
 
 In phpMyAdmin, confirm the `cyber_aggression` database exists with these tables:
-- `users`, `admins`, `friend_requests`, `friendships`, `chat_messages`
+- `users`, `friend_requests`, `friendships`, `chat_messages`
 - `abusers`, `blocked_messages`, `chat_read_status`, `notifications`, `user_activity`
-
-### 4. Set Up the Default Admin
-
-The schema includes a placeholder admin row. To create a properly hashed admin password, run:
-
-```bash
-python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('admin123'))"
-```
-
-Then in phpMyAdmin, update the admin's `password_hash`:
-
-```sql
-UPDATE admins SET password_hash = '<hash_from_above>' WHERE username = 'admin';
-```
-
-Alternatively, the Flask app will auto-create the default admin (from `.env` settings) on first startup if it doesn't exist.
 
 ---
 
@@ -348,24 +317,6 @@ Navigate to: **http://localhost:5000**
 
 ---
 
-## Default Admin Setup
-
-Default admin credentials (configured in `.env`):
-
-- **Username:** `admin`
-- **Password:** `admin123`
-
-**Change these immediately after first login** by updating `.env`:
-
-```
-ADMIN_USERNAME=your_admin_name
-ADMIN_PASSWORD=your_secure_password
-```
-
-Admin login page: **http://localhost:5000/admin_login**
-
----
-
 ## Configuration
 
 All settings are in `.env` (copy from `.env.example`):
@@ -380,8 +331,6 @@ All settings are in `.env` (copy from `.env.example`):
 | `MYSQL_PORT` | 3306 | MySQL port |
 | `AGGRESSION_THRESHOLD` | 0.65 | ML blocking threshold (0-1) |
 | `SESSION_EXPIRY_HOURS` | 24 | Session lifetime |
-| `ADMIN_USERNAME` | admin | Default admin username |
-| `ADMIN_PASSWORD` | admin123 | Default admin password |
 
 ---
 
@@ -432,15 +381,6 @@ All settings are in `.env` (copy from `.env.example`):
 | POST | `/api/notifications/<id>/read` | Mark as read |
 | POST | `/api/notifications/read-all` | Mark all read |
 
-### Admin
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/admin/login` | Admin login |
-| GET | `/api/admin/stats` | Dashboard statistics |
-| GET | `/api/admin/abusers` | Abusive users list |
-| GET | `/api/admin/blocked-messages` | Blocked messages list |
-| GET | `/api/admin/users` | All users list |
-
 ---
 
 ## Socket.IO Events
@@ -479,7 +419,7 @@ All settings are in `.env` (copy from `.env.example`):
 - **SQL Injection** prevention: all database queries use parameterized queries via `mysql.connector`. No string concatenation in SQL.
 - **XSS** prevention: all user-generated content is HTML-escaped in the frontend via `escapeHtml()`.
 - **Session security**: Flask sessions with configurable expiry, `PERMANENT_SESSION_LIFETIME`.
-- **Authentication decorators**: `@login_required` and `@admin_required` protect all endpoints.
+- **Authentication decorators**: `@login_required` protect all endpoints.
 - **Authorization checks**: users can only access their own data; message deletion verifies ownership.
 - **ML is authoritative**: the backend always runs aggression detection. Client-side results are never trusted.
 - **Input validation**: username format, email format, password strength, message length limits.
@@ -551,9 +491,6 @@ socketio.run(app, host="0.0.0.0", port=5001, debug=True)
 - [ ] Blocked messages are stored in database
 - [ ] Violations increment per blocked message
 - [ ] AI Safety Alert modal appears for blocked messages
-- [ ] Admin login works
-- [ ] Admin dashboard shows correct stats
-- [ ] Admin can search users and blocked messages
 - [ ] Responsive UI works on mobile/tablet/desktop
 - [ ] Database schema imports into phpMyAdmin
 - [ ] No plaintext passwords stored

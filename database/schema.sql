@@ -10,6 +10,9 @@ CREATE DATABASE IF NOT EXISTS cyber_aggression_copy
 
 USE cyber_aggression_copy;
 
+-- Remove the retired administrator account table when refreshing/upgrading.
+DROP TABLE IF EXISTS admins;
+
 -- ------------------------------------------------------------
 -- USERS
 -- ------------------------------------------------------------
@@ -38,17 +41,6 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     preferences_json TEXT NOT NULL,
     updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_preferences_user FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ------------------------------------------------------------
--- ADMINS
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS admins (
-    id              INT AUTO_INCREMENT PRIMARY KEY,
-    username        VARCHAR(50)  NOT NULL UNIQUE,
-    password_hash   VARCHAR(255) NOT NULL,
-    created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_admin_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -207,7 +199,3 @@ CREATE TABLE IF NOT EXISTS message_deletions (
     CONSTRAINT fk_md_user FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
     CONSTRAINT fk_md_message FOREIGN KEY (message_id) REFERENCES chat_messages(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- The application creates the configured default admin with a fresh Werkzeug
--- password hash when `python app.py` first starts.

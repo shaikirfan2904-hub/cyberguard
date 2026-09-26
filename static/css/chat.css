@@ -220,7 +220,7 @@
 }
 
 .message-meta {
-    display: flex;
+    display: flex !important;
     align-items: center;
     gap: 3px;
     align-self: flex-end;
@@ -230,10 +230,18 @@
     color: var(--text-muted);
     white-space: nowrap;
     line-height: 1;
+    min-height: 12px;
+    visibility: visible;
+    opacity: 1;
 }
 .message--out .message-meta { color: rgba(255,255,255,.72); }
 
-.message-time { display: inline-block; }
+.message-time {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: inherit;
+}
 .message-status {
     display: flex;
     align-items: center;

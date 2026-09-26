@@ -338,12 +338,6 @@ const CyberGuardSocket = (function () {
             'error',
 
 
-            /*
-             * Admin
-             */
-
-            'admin_blocked_message'
-
         ];
 
 

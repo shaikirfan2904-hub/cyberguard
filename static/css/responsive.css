@@ -27,9 +27,6 @@
         --sidebar-width: 280px;
     }
 
-    .features {
-        max-width: 800px;
-    }
 }
 
 
@@ -47,9 +44,6 @@
         grid-template-columns: repeat(3, 1fr);
     }
 
-    .admin-content {
-        padding: var(--sp-4);
-    }
 }
 
 
@@ -192,14 +186,6 @@
     }
 
 
-    /* --------------------------------------------------------
-       FEATURES
-       -------------------------------------------------------- */
-
-    .features {
-        grid-template-columns: 1fr;
-    }
-
 
     /* --------------------------------------------------------
        LANDING NAVIGATION
@@ -227,30 +213,6 @@
         grid-template-columns: repeat(2, 1fr);
     }
 
-
-    /* --------------------------------------------------------
-       ADMIN SIDEBAR
-       -------------------------------------------------------- */
-
-    .admin-sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        bottom: 0;
-
-        transform: translateX(-100%);
-
-        z-index: 100;
-        box-shadow: var(--shadow-lg);
-    }
-
-    .admin-sidebar.open {
-        transform: translateX(0);
-    }
-
-    .admin-content {
-        padding: var(--sp-3);
-    }
 
 
     /* --------------------------------------------------------
@@ -311,16 +273,6 @@
     }
 
 
-    /* Stats */
-
-    .stats-bar {
-        gap: var(--sp-3);
-    }
-
-    .stat-divider {
-        display: none;
-    }
-
     .stats-grid {
         grid-template-columns: 1fr;
     }
@@ -358,18 +310,6 @@
         max-width: calc(100vw - 32px);
     }
 
-
-    /* Admin */
-
-    .admin-table th,
-    .admin-table td {
-        padding: 8px 10px;
-        font-size: 0.8rem;
-    }
-
-    .admin-search-wrap {
-        width: 100%;
-    }
 
 
     /* Toast */

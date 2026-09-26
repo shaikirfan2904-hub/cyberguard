@@ -45,13 +45,6 @@ blocked_logger.addHandler(logging.FileHandler(os.path.join(Config.LOG_DIR, "bloc
 
 logger = logging.getLogger("cyberguard.app")
 
-# The original schema shipped with a placeholder digest that cannot validate
-# the documented bootstrap password. Replace that one known seed on startup.
-_INVALID_SCHEMA_ADMIN_HASH = (
-    "pbkdf2:sha256:600000$W4CyGuard$"
-    "9e8a0c7b3d2f1e6a5c4b3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1"
-)
-
 # ============================================================
 # Flask + Socket.IO initialization
 # ============================================================
@@ -66,6 +59,16 @@ socketio = SocketIO(
     ping_timeout=60,
     ping_interval=25,
 )
+
+
+@app.after_request
+def prevent_private_page_caching(response):
+    """Do not let browser history restore protected pages after logout."""
+    if request.path in {"/dashboard", "/profile", "/settings", "/logout"}:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 # ============================================================
 # MySQL connection pool
@@ -138,7 +141,7 @@ def query_db(sql, params=None, fetch="all", commit=False):
 # Helpers
 # ============================================================
 def init_db():
-    """Create default admin if not exists."""
+    """Apply small compatibility migrations for the messaging schema."""
     try:
         query_db(
             "ALTER TABLE chat_messages MODIFY message_type ENUM('text','blocked') NOT NULL DEFAULT 'text'",
@@ -155,6 +158,7 @@ def init_db():
                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""",
             fetch=None, commit=True
         )
+        query_db("DROP TABLE IF EXISTS admins", fetch=None, commit=True)
         query_db(
             """CREATE TABLE IF NOT EXISTS user_preferences (
                    username VARCHAR(50) NOT NULL PRIMARY KEY,
@@ -164,26 +168,8 @@ def init_db():
                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""",
             fetch=None, commit=True
         )
-        admin = query_db(
-            "SELECT id, password_hash FROM admins WHERE username = %s",
-            (Config.ADMIN_USERNAME,), fetch="one"
-        )
-        if not admin:
-            pw_hash = generate_password_hash(Config.ADMIN_PASSWORD)
-            query_db(
-                "INSERT INTO admins (username, password_hash) VALUES (%s, %s)",
-                (Config.ADMIN_USERNAME, pw_hash), commit=True
-            )
-            logger.info(f"Default admin '{Config.ADMIN_USERNAME}' created.")
-        elif admin["password_hash"] == _INVALID_SCHEMA_ADMIN_HASH:
-            query_db(
-                "UPDATE admins SET password_hash = %s WHERE id = %s",
-                (generate_password_hash(Config.ADMIN_PASSWORD), admin["id"]),
-                fetch=None, commit=True
-            )
-            logger.info("Replaced the invalid schema bootstrap admin password hash.")
     except Exception as e:
-        error_logger.error(f"init_db admin check failed: {e}")
+        error_logger.error(f"Database migration failed: {e}")
 
 
 def log_activity(username, action, ip=None):
@@ -301,17 +287,6 @@ def login_required(f):
     return decorated
 
 
-def admin_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if "admin_id" not in session:
-            if request.is_json or request.path.startswith("/api/"):
-                return jsonify({"success": False, "message": "Admin authentication required."}), 401
-            return redirect(url_for("admin_login"))
-        return f(*args, **kwargs)
-    return decorated
-
-
 # ============================================================
 # Page routes
 # ============================================================
@@ -357,22 +332,8 @@ def settings():
     )
 
 
-@app.route("/admin_login")
-def admin_login():
-    if "admin_id" in session:
-        return redirect(url_for("admin"))
-    return render_template("admin_login.html")
-
-
-@app.route("/admin")
-@admin_required
-def admin():
-    return render_template("admin.html", admin_username=session.get("admin_username"))
-
-
 @app.route("/logout", methods=["GET", "POST"])
 def logout():
-    # Browser back/forward navigation must not invalidate a signed-in session.
     if request.method == "GET":
         return redirect(url_for("dashboard" if "user_id" in session else "login"))
 
@@ -388,16 +349,11 @@ def logout():
         except Exception as e:
             error_logger.error(f"Logout error: {e}")
     session.clear()
-    return redirect(url_for("login"))
-
-
-@app.route("/admin_logout", methods=["GET", "POST"])
-def admin_logout():
-    if request.method == "GET":
-        return redirect(url_for("admin" if "admin_id" in session else "admin_login"))
-    session.pop("admin_id", None)
-    session.pop("admin_username", None)
-    return redirect(url_for("admin_login"))
+    response = redirect(url_for("login"))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 # ============================================================
@@ -1270,168 +1226,6 @@ def api_mark_all_notifications_read():
 
 
 # ============================================================
-# Admin API
-# ============================================================
-@app.route("/api/admin/login", methods=["POST"])
-def api_admin_login():
-    data = request.get_json(silent=True) or {}
-    username = (data.get("username") or "").strip()
-    password = data.get("password") or ""
-
-    if not username or not password:
-        return jsonify({"success": False, "message": "Username and password are required."}), 400
-
-    try:
-        admin = query_db(
-            "SELECT id, username, password_hash FROM admins WHERE username = %s",
-            (username,), fetch="one"
-        )
-        if not admin or not check_password_hash(admin["password_hash"], password):
-            return jsonify({"success": False, "message": "Invalid admin credentials."}), 401
-
-        session["admin_id"] = admin["id"]
-        session["admin_username"] = admin["username"]
-        return jsonify({
-            "success": True, "message": "Admin login successful.",
-            "data": {"username": admin["username"]}
-        }), 200
-    except Exception as e:
-        error_logger.error(f"Admin login error: {e}")
-        return jsonify({"success": False, "message": "Admin login failed."}), 500
-
-
-@app.route("/api/admin/stats")
-@admin_required
-def api_admin_stats():
-    try:
-        total_users = query_db("SELECT COUNT(*) as cnt FROM users", fetch="one")["cnt"]
-        online_users = query_db("SELECT COUNT(*) as cnt FROM users WHERE status = 'online'", fetch="one")["cnt"]
-        total_messages = query_db("SELECT COUNT(*) as cnt FROM chat_messages WHERE is_deleted = FALSE", fetch="one")["cnt"]
-        blocked_messages = query_db("SELECT COUNT(*) as cnt FROM blocked_messages", fetch="one")["cnt"]
-        flagged_users = query_db(
-            "SELECT COUNT(*) as cnt FROM abusers WHERE violations >= %s",
-            (Config.ABUSIVE_USER_FLAG_THRESHOLD,), fetch="one"
-        )["cnt"]
-        total_violations = query_db("SELECT COALESCE(SUM(violations), 0) as cnt FROM abusers", fetch="one")["cnt"]
-
-        # Messages over time (last 7 days)
-        msg_timeline = query_db(
-            """SELECT DATE(created_at) as date, COUNT(*) as count
-               FROM chat_messages WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-               GROUP BY DATE(created_at) ORDER BY date""",
-            fetch="all"
-        )
-        # Blocked messages over time (last 7 days)
-        blocked_timeline = query_db(
-            """SELECT DATE(created_at) as date, COUNT(*) as count
-               FROM blocked_messages WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-               GROUP BY DATE(created_at) ORDER BY date""",
-            fetch="all"
-        )
-
-        return jsonify({
-            "success": True, "data": {
-                "total_users": total_users,
-                "online_users": online_users,
-                "total_messages": total_messages,
-                "blocked_messages": blocked_messages,
-                "flagged_users": flagged_users,
-                "total_violations": total_violations,
-                "messages_timeline": msg_timeline or [],
-                "blocked_timeline": blocked_timeline or [],
-            }
-        }), 200
-    except Exception as e:
-        error_logger.error(f"Admin stats error: {e}")
-        return jsonify({"success": False, "message": "Failed to load stats."}), 500
-
-
-@app.route("/api/admin/abusers")
-@admin_required
-def api_admin_abusers():
-    try:
-        search = (request.args.get("q") or "").strip()
-        if search:
-            abusers = query_db(
-                """SELECT a.id, a.username, a.violations, a.risk_level,
-                          a.last_violation, a.created_at, u.display_name
-                   FROM abusers a JOIN users u ON u.username = a.username
-                   WHERE a.username LIKE %s OR u.display_name LIKE %s
-                   ORDER BY a.violations DESC""",
-                (f"%{search}%", f"%{search}%"), fetch="all"
-            )
-        else:
-            abusers = query_db(
-                """SELECT a.id, a.username, a.violations, a.risk_level,
-                          a.last_violation, a.created_at, u.display_name
-                   FROM abusers a JOIN users u ON u.username = a.username
-                   ORDER BY a.violations DESC""",
-                fetch="all"
-            )
-        for a in (abusers or []):
-            a["last_violation"] = a["last_violation"].isoformat() if a["last_violation"] else None
-            a["created_at"] = a["created_at"].isoformat() if a["created_at"] else None
-        return jsonify({"success": True, "data": abusers or []}), 200
-    except Exception as e:
-        error_logger.error(f"Admin abusers error: {e}")
-        return jsonify({"success": False, "message": "Failed to load abusers."}), 500
-
-
-@app.route("/api/admin/blocked-messages")
-@admin_required
-def api_admin_blocked_messages():
-    try:
-        search = (request.args.get("q") or "").strip()
-        if search:
-            messages = query_db(
-                """SELECT id, username, message, classification, confidence, reason, created_at
-                   FROM blocked_messages
-                   WHERE username LIKE %s OR message LIKE %s
-                   ORDER BY created_at DESC LIMIT 200""",
-                (f"%{search}%", f"%{search}%"), fetch="all"
-            )
-        else:
-            messages = query_db(
-                """SELECT id, username, message, classification, confidence, reason, created_at
-                   FROM blocked_messages ORDER BY created_at DESC LIMIT 200""",
-                fetch="all"
-            )
-        for m in (messages or []):
-            m["created_at"] = m["created_at"].isoformat() if m["created_at"] else None
-        return jsonify({"success": True, "data": messages or []}), 200
-    except Exception as e:
-        error_logger.error(f"Admin blocked messages error: {e}")
-        return jsonify({"success": False, "message": "Failed to load blocked messages."}), 500
-
-
-@app.route("/api/admin/users")
-@admin_required
-def api_admin_users():
-    try:
-        search = (request.args.get("q") or "").strip()
-        if search:
-            users = query_db(
-                """SELECT id, username, email, display_name, status, last_seen, created_at
-                   FROM users WHERE username LIKE %s OR email LIKE %s
-                   ORDER BY created_at DESC""",
-                (f"%{search}%", f"%{search}%"), fetch="all"
-            )
-        else:
-            users = query_db(
-                """SELECT id, username, email, display_name, status, last_seen, created_at
-                   FROM users ORDER BY created_at DESC""",
-                fetch="all"
-            )
-        for u in (users or []):
-            u["last_seen"] = u["last_seen"].isoformat() if u["last_seen"] else None
-            u["created_at"] = u["created_at"].isoformat() if u["created_at"] else None
-        return jsonify({"success": True, "data": users or []}), 200
-    except Exception as e:
-        error_logger.error(f"Admin users error: {e}")
-        return jsonify({"success": False, "message": "Failed to load users."}), 500
-
-
-# ============================================================
 # Socket.IO event handlers
 # ============================================================
 connected_users = {}  # sid -> username
@@ -1731,17 +1525,6 @@ def handle_send_message(data):
                     "message": blocked_placeholder,
                     "classification": label,
                     "violations": new_count,
-                }
-            )
-
-            # Admin receives the original text for moderation.
-            emit(
-                "admin_blocked_message",
-                {
-                    "username": sender,
-                    "message": message_text[:100],
-                    "classification": label,
-                    "confidence": confidence,
                 }
             )
 
