@@ -137,9 +137,7 @@ cyberguard-ai/
 ├── README.md
 │
 ├── train_model.py            # Model training pipeline
-├── evaluate_model.py         # Model evaluation script
-├── preprocess.py             # Text preprocessing (NLTK, normalization)
-├── merge_datasets.py         # Dataset merger + seed data
+├── evaluate_model.py         # Holdout and qualitative smoke evaluation
 │
 ├── model/
 │   ├── model.pkl             # Trained classifier
@@ -147,9 +145,7 @@ cyberguard-ai/
 │   └── model_metadata.json   # Model evaluation metadata
 │
 ├── datasets/
-│   ├── raw/                  # Place raw CSV datasets here
-│   ├── processed/
-│   └── cleaned_dataset.csv   # Merged training dataset
+│   └── cleaned_dataset.csv   # Labeled training dataset
 │
 ├── logs/
 │   ├── blocked_messages.log
@@ -261,41 +257,31 @@ In phpMyAdmin, confirm the `cyber_aggression` database exists with these tables:
 
 ## ML Model Training
 
-The project ships with a pre-trained model in `model/`. To retrain from scratch or with additional data:
+The project ships with a pre-trained model in `model/`. The reproducible training script reads `datasets/cleaned_dataset.csv`, which must have `text` and `label` columns (`0` = safe, `1` = aggressive). It removes blank rows, non-binary labels, duplicate texts, and normalized text duplicates with conflicting labels.
 
-### 1. Add Datasets (Optional)
-
-Place CSV files with `text` and `label` columns (0 = safe, 1 = aggressive) in `datasets/raw/`. The system supports Kaggle aggression datasets, Twitter data, TRAC datasets, etc.
-
-If no raw datasets are found, a built-in seed dataset is used.
-
-### 2. Merge Datasets
+Run training and evaluation with the project's virtual environment:
 
 ```bash
-python merge_datasets.py
+venv/Scripts/python.exe train_model.py
 ```
 
-This merges all raw CSVs + seed data into `datasets/cleaned_dataset.csv`.
+The script trains a class-balanced Logistic Regression classifier on word and character TF-IDF features. It keeps a stratified test set out of fitting and threshold selection, then selects a threshold on a separate validation set to maximize aggressive-message recall while keeping the safe-message false-positive rate at or below 5%.
 
-### 3. Train the Model
+By default, the trained model is saved under `model/candidate/` and the live model remains unchanged. To promote only if the candidate improves held-out F1 and recall while preserving precision and false-positive limits, run:
 
 ```bash
-python train_model.py
+venv/Scripts/python.exe train_model.py --promote-if-better
 ```
 
-This:
-- Builds TF-IDF features (word 1-2 grams + character 2-5 grams)
-- Compares Logistic Regression, Linear SVM, Naive Bayes, and Random Forest
-- Selects the best model by F1 score
-- Saves `model/model.pkl`, `model/vectorizer.pkl`, and `model/model_metadata.json`
+The model metadata records the split sizes, threshold, confusion matrix, precision, recall, F1, and false-positive rate. Promotion saves the previous live model files in a timestamped `model/backups/` folder. An `AGGRESSION_THRESHOLD` in `.env` overrides the validated metadata value; otherwise the app uses the model's recorded threshold. The training data currently combines general user-generated text sources; it should not be treated as a British-English-specific or independently sourced benchmark without further data collection and evaluation.
 
-### 4. Evaluate the Model
+Reproduce the held-out metrics and run the small qualitative behavior suite with:
 
 ```bash
-python evaluate_model.py
+venv/Scripts/python.exe evaluate_model.py
 ```
 
-Outputs accuracy, precision, recall, F1, confusion matrix, and cross-model comparison.
+The hand-written cases are diagnostic examples only, not a replacement for a representative, independently labeled benchmark.
 
 ---
 
@@ -442,8 +428,8 @@ All settings are in `.env` (copy from `.env.example`):
 
 ### Model Not Loading
 - Ensure `model/model.pkl` and `model/vectorizer.pkl` exist
-- If missing, run `python train_model.py` to train
-- The app will fall back to keyword-based detection if model files are missing (with a warning in logs)
+- If missing, run `venv/Scripts/python.exe train_model.py --promote-if-better` to train and install a candidate that meets the safety gate
+- The app reads the validated model threshold from metadata unless `AGGRESSION_THRESHOLD` is explicitly set in `.env`
 
 ### Eventlet Installation Issues (Windows)
 ```bash

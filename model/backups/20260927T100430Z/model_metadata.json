@@ -1,0 +1,97 @@
+{
+  "model_name": "LogisticRegression",
+  "dataset_size": 254,
+  "train_size": 203,
+  "test_size": 51,
+  "training_date": "2026-09-22 16:25:44 UTC",
+  "accuracy": 0.9804,
+  "precision": 0.9615,
+  "recall": 1.0,
+  "f1_score": 0.9804,
+  "cv_f1_mean": 0.9638,
+  "cv_f1_std": 0.0274,
+  "threshold": 0.65,
+  "feature_count": 8820,
+  "labels": {
+    "0": "SAFE",
+    "1": "AGGRESSIVE"
+  },
+  "all_models": {
+    "LogisticRegression": {
+      "name": "LogisticRegression",
+      "accuracy": 0.9804,
+      "precision": 0.9615,
+      "recall": 1.0,
+      "f1": 0.9804,
+      "confusion_matrix": [
+        [
+          25,
+          1
+        ],
+        [
+          0,
+          25
+        ]
+      ],
+      "cv_f1_mean": 0.9638,
+      "cv_f1_std": 0.0274
+    },
+    "LinearSVC": {
+      "name": "LinearSVC",
+      "accuracy": 0.9804,
+      "precision": 0.9615,
+      "recall": 1.0,
+      "f1": 0.9804,
+      "confusion_matrix": [
+        [
+          25,
+          1
+        ],
+        [
+          0,
+          25
+        ]
+      ],
+      "cv_f1_mean": 0.974,
+      "cv_f1_std": 0.0296
+    },
+    "MultinomialNB": {
+      "name": "MultinomialNB",
+      "accuracy": 0.9804,
+      "precision": 0.9615,
+      "recall": 1.0,
+      "f1": 0.9804,
+      "confusion_matrix": [
+        [
+          25,
+          1
+        ],
+        [
+          0,
+          25
+        ]
+      ],
+      "cv_f1_mean": 0.9661,
+      "cv_f1_std": 0.0321
+    },
+    "RandomForest": {
+      "name": "RandomForest",
+      "accuracy": 0.9608,
+      "precision": 0.96,
+      "recall": 0.96,
+      "f1": 0.96,
+      "confusion_matrix": [
+        [
+          25,
+          1
+        ],
+        [
+          1,
+          24
+        ]
+      ],
+      "cv_f1_mean": 0.9479,
+      "cv_f1_std": 0.037
+    }
+  }
+}
